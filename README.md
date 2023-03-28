@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://cf-templates-199e8r5wvc06r-us-west-2.s3.us-west-2.amazonaws.com/deepbits-logo/logo@1500w.png">
+  <img src="https://cf-templates-199e8r5wvc06r-us-west-2.s3.us-west-2.amazonaws.com/deepbits-logo/logo@500w.png">
 </p>
 
 <p align="center">
