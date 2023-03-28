@@ -3,7 +3,7 @@
 </p>
 
 <p align="center">
-  <a href="https://tools.deepbits.com/github/DeepBitsTechnology/getsbom"><img alt="Toolkit unit tests status" src="https://api.deepbits.com/gh/DeepBitsTechnology/getsbom/badge"></a>
+  <a href="https://tools.deepbits.com/github/DeepBitsTechnology/getsbom"><img alt="SBOM status for Deepbits SBOM Action" src="https://api.deepbits.com/gh/DeepBitsTechnology/getsbom/badge"></a>
 </p>
 
 # Deepbits SBOM Action
