@@ -1,0 +1,23 @@
+name: "Build"
+
+on: # rebuild any PRs and main branch changes
+  pull_request:
+  push:
+    branches:
+      - main
+      - "releases/*"
+
+jobs:
+  build: # make sure build/ci work properly
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set Node.js 18
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - run: |
+          npm install
+      - run: |
+          npm run all

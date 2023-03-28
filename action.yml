@@ -1,0 +1,14 @@
+name: "Deepbits SBOM Action"
+description: "Create and analyze SBOM for your project to find vulnerabilities and license issues"
+author: "Deepbits Technology Inc."
+branding:
+  icon: "shield"
+  color: "blue"
+inputs:
+  token:
+    description: "The GitHub authentication token"
+    default: ${{ github.token }}
+    required: false
+runs:
+  using: "node16"
+  main: "dist/index.js"
