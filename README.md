@@ -47,13 +47,12 @@ jobs:
 
 ## Actions Artifact
 
-After the scan is complete, an artifact named `DEEPBITS_SCAN_RESULTS` will be generated, which contains three files:
+After the scan is complete, an artifact named `DEEPBITS_SCAN_RESULTS` will be generated, which contains two files:
 
-| Output              | Description                                                                     |
-| ------------------- | ------------------------------------------------------------------------------- |
-| sbom.CycloneDX.json | SBOM in CycloneDX format                                                        |
-| finalResult.json    | The final scan report contains vulnerability and malware summary in JSON format |
-| staticResult.json   | The static analysis report in JSON format                                       |
+| Output              | Description                                                           |
+| ------------------- | --------------------------------------------------------------------- |
+| sbom.CycloneDX.json | SBOM in CycloneDX format                                              |
+| scanSummary.json    | Scan result contains vulnerability and malware summary in JSON format |
 
 **We have included a sample folder called `sample_scan_results` in the repository [here](./samples/DEEPBITS_SCAN_RESULTS/).**
 
