@@ -17,12 +17,11 @@ export async function run(): Promise<void> {
 
     const scanResult = await getScanResult();
 
-    const {finalResult, staticResult} = scanResult?.scanResult?.[0] ?? {};
+    const {finalResult} = scanResult?.scanResult?.[0] ?? {};
 
     await uploadArtifacts([
       {name: 'sbom.CycloneDX', jsonContent: finalResult?.bom || {}},
-      {name: 'staticResult', jsonContent: staticResult || {}},
-      {name: 'finalResult', jsonContent: finalResult || {}},
+      {name: 'scanSummary', jsonContent: finalResult || {}},
     ]);
 
     await setInfo();

@@ -31,7 +31,6 @@ describe('Main', () => {
         scanResult: [
           {
             finalResult: {bom: 'bom'},
-            staticResult: [{filePath: 'fp'}],
             scanEndAt: Date.now().toString(),
           },
         ],
@@ -43,8 +42,7 @@ describe('Main', () => {
       // Set up the expected artifact upload parameters
       const expectedUploadParams = [
         {name: 'sbom.CycloneDX', jsonContent: 'bom'},
-        {name: 'staticResult', jsonContent: [{filePath: 'fp'}]},
-        {name: 'finalResult', jsonContent: {bom: 'bom'}},
+        {name: 'scanSummary', jsonContent: {bom: 'bom'}},
       ];
 
       await run();
@@ -68,8 +66,7 @@ describe('Main', () => {
 
       const expectedUploadParams = [
         {name: 'sbom.CycloneDX', jsonContent: {}},
-        {name: 'staticResult', jsonContent: {}},
-        {name: 'finalResult', jsonContent: {}},
+        {name: 'scanSummary', jsonContent: {}},
       ];
 
       await run();

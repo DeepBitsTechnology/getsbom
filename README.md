@@ -47,13 +47,12 @@ jobs:
 
 ## Actions Artifact
 
-After the scan is complete, an artifact named `DEEPBITS_SCAN_RESULTS` will be generated, which contains three files:
+After the scan is complete, an artifact named `DEEPBITS_SCAN_RESULTS` will be generated, which contains two files:
 
-| Output              | Description                                                                     |
-| ------------------- | ------------------------------------------------------------------------------- |
-| sbom.CycloneDX.json | SBOM in CycloneDX format                                                        |
-| finalResult.json    | The final scan report contains vulnerability and malware summary in JSON format |
-| staticResult.json   | The static analysis report in JSON format                                       |
+| Output              | Description                                                           |
+| ------------------- | --------------------------------------------------------------------- |
+| sbom.CycloneDX.json | SBOM in CycloneDX format                                              |
+| scanSummary.json    | Scan result contains vulnerability and malware summary in JSON format |
 
 **We have included a sample folder called `sample_scan_results` in the repository [here](./samples/DEEPBITS_SCAN_RESULTS/).**
 
@@ -74,6 +73,20 @@ To obtain these outputs, please refer to the three options listed below:
 | DEEPBITS_REPO   | The URL to access the repo details of DeepRepo              |
 | DEEPBITS_COMMIT | The URL to access the scan report of the commit on DeepRepo |
 | DEEPBITS_BADGE  | A SVG badge displaying the status of the the repo           |
+
+You can add the SVG badge to your README.md file like this:
+
+```markdown
+[![SBOM status]({{DEEPBITS_BADGE}})]({{DEEPBITS_REPO}})
+```
+
+For example, the badge for this repository is:
+
+```markdown
+[![SBOM status](https://api.deepbits.com/gh/DeepBitsTechnology/getsbom/badge)](https://tools.deepbits.com/github/DeepBitsTechnology/getsbom)
+```
+
+[![SBOM status](https://api.deepbits.com/gh/DeepBitsTechnology/getsbom/badge)](https://tools.deepbits.com/github/DeepBitsTechnology/getsbom)
 
 **The image below is a screenshot of a scan result on [DeepRepo](https://tools.deepbits.com/github), which is accessible through the `DEEPBITS_COMMIT` output.**
 
