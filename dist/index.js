@@ -52,11 +52,10 @@ function run() {
                 return;
             }
             const scanResult = yield (0, DeepbitsGitHubAction_1.getScanResult)();
-            const { finalResult, staticResult } = (_b = (_a = scanResult === null || scanResult === void 0 ? void 0 : scanResult.scanResult) === null || _a === void 0 ? void 0 : _a[0]) !== null && _b !== void 0 ? _b : {};
+            const { finalResult } = (_b = (_a = scanResult === null || scanResult === void 0 ? void 0 : scanResult.scanResult) === null || _a === void 0 ? void 0 : _a[0]) !== null && _b !== void 0 ? _b : {};
             yield (0, DeepbitsGitHubAction_1.uploadArtifacts)([
                 { name: 'sbom.CycloneDX', jsonContent: (finalResult === null || finalResult === void 0 ? void 0 : finalResult.bom) || {} },
-                { name: 'staticResult', jsonContent: staticResult || {} },
-                { name: 'finalResult', jsonContent: finalResult || {} },
+                { name: 'scanSummary', jsonContent: finalResult || {} },
             ]);
             yield (0, DeepbitsGitHubAction_1.setInfo)();
         }
