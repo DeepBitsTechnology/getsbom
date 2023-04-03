@@ -54,7 +54,7 @@ function run() {
             const scanResult = (_b = (_a = (yield (0, DeepbitsGitHubAction_1.getScanResult)())) === null || _a === void 0 ? void 0 : _a.scanResult) === null || _b === void 0 ? void 0 : _b[0];
             let sbomZipFileLocation;
             if (scanResult === null || scanResult === void 0 ? void 0 : scanResult._id) {
-                sbomZipFileLocation = yield (0, DeepbitsGitHubAction_1.downloadCommitSbomZip)(scanResult === null || scanResult === void 0 ? void 0 : scanResult._id);
+                sbomZipFileLocation = yield (0, DeepbitsGitHubAction_1.downloadCommitSbomZip)(scanResult._id);
             }
             const { finalResult } = scanResult !== null && scanResult !== void 0 ? scanResult : {};
             yield (0, DeepbitsGitHubAction_1.uploadArtifacts)([{ name: 'scanSummary', jsonContent: finalResult || {} }], sbomZipFileLocation ? [sbomZipFileLocation] : undefined);

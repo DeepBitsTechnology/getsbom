@@ -21,7 +21,7 @@ export async function run(): Promise<void> {
     let sbomZipFileLocation;
 
     if (scanResult?._id) {
-      sbomZipFileLocation = await downloadCommitSbomZip(scanResult?._id);
+      sbomZipFileLocation = await downloadCommitSbomZip(scanResult._id);
     }
 
     const {finalResult} = scanResult ?? {};

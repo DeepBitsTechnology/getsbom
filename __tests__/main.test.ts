@@ -27,9 +27,12 @@ describe('Main', () => {
     it('should call expected functions with correct parameters if repository is public and scan result exists', async () => {
       jest.spyOn(deepbitsAction, 'isRepoPublic').mockResolvedValueOnce(true);
 
+      const mockScanResultId = 'mockScanResultId';
+
       const mockScanResult = {
         scanResult: [
           {
+            _id: mockScanResultId,
             finalResult: {bom: 'bom'},
             scanEndAt: Date.now().toString(),
           },
@@ -39,19 +42,30 @@ describe('Main', () => {
         .spyOn(deepbitsAction, 'getScanResult')
         .mockResolvedValueOnce(mockScanResult);
 
+      const mockDownloadCommitSbomZipResult =
+        'DEEPBITS_SCAN_RESULTS/mockDownloadCommitSbomZipResult.zip';
+      jest
+        .spyOn(deepbitsAction, 'downloadCommitSbomZip')
+        .mockResolvedValueOnce(mockDownloadCommitSbomZipResult);
+
       // Set up the expected artifact upload parameters
       const expectedUploadParams = [
-        {name: 'sbom.CycloneDX', jsonContent: 'bom'},
-        {name: 'scanSummary', jsonContent: {bom: 'bom'}},
+        [{name: 'scanSummary', jsonContent: {bom: 'bom'}}, ,],
+        [mockDownloadCommitSbomZipResult],
       ];
 
       await run();
 
       expect(core.setFailed).not.toHaveBeenCalled();
 
+      expect(deepbitsAction.downloadCommitSbomZip).toHaveBeenCalledTimes(1);
+      expect(deepbitsAction.downloadCommitSbomZip).toHaveBeenCalledWith(
+        mockScanResultId
+      );
+
       expect(deepbitsAction.uploadArtifacts).toHaveBeenCalledTimes(1);
       expect(deepbitsAction.uploadArtifacts).toHaveBeenCalledWith(
-        expectedUploadParams
+        ...expectedUploadParams
       );
 
       expect(deepbitsAction.setInfo).toHaveBeenCalledTimes(1);
@@ -65,17 +79,18 @@ describe('Main', () => {
         .mockResolvedValueOnce(undefined);
 
       const expectedUploadParams = [
-        {name: 'sbom.CycloneDX', jsonContent: {}},
-        {name: 'scanSummary', jsonContent: {}},
+        [{name: 'scanSummary', jsonContent: {}}],
+        undefined,
       ];
 
       await run();
 
       expect(core.setFailed).not.toHaveBeenCalled();
+      expect(deepbitsAction.downloadCommitSbomZip).not.toHaveBeenCalled();
 
       expect(deepbitsAction.uploadArtifacts).toHaveBeenCalledTimes(1);
       expect(deepbitsAction.uploadArtifacts).toHaveBeenCalledWith(
-        expectedUploadParams
+        ...expectedUploadParams
       );
 
       expect(deepbitsAction.setInfo).toHaveBeenCalledTimes(1);
