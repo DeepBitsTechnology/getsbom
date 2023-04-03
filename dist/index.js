@@ -120,7 +120,7 @@ const github = __importStar(__nccwpck_require__(5438));
 const axios_1 = __importDefault(__nccwpck_require__(8757));
 const fs_1 = __nccwpck_require__(7147);
 const api_1 = __nccwpck_require__(5615);
-const DEEPBIT_SCAN_RESULTS = 'DEEPBIT_SCAN_RESULTS';
+const DEEPBITS_SCAN_RESULTS = 'DEEPBITS_SCAN_RESULTS';
 const isRepoPublic = () => __awaiter(void 0, void 0, void 0, function* () {
     const token = core.getInput('token');
     const context = github.context;
@@ -163,16 +163,16 @@ const setInfo = () => __awaiter(void 0, void 0, void 0, function* () {
 });
 exports.setInfo = setInfo;
 const uploadArtifacts = (artifacts, fileLocations) => __awaiter(void 0, void 0, void 0, function* () {
-    if (!(0, fs_1.existsSync)(DEEPBIT_SCAN_RESULTS)) {
-        (0, fs_1.mkdirSync)(DEEPBIT_SCAN_RESULTS);
+    if (!(0, fs_1.existsSync)(DEEPBITS_SCAN_RESULTS)) {
+        (0, fs_1.mkdirSync)(DEEPBITS_SCAN_RESULTS);
     }
     const files = yield Promise.all(artifacts.map(({ name, jsonContent }) => __awaiter(void 0, void 0, void 0, function* () {
-        const fileName = `${DEEPBIT_SCAN_RESULTS}/${name}.json`;
+        const fileName = `${DEEPBITS_SCAN_RESULTS}/${name}.json`;
         (0, fs_1.writeFileSync)(fileName, JSON.stringify(jsonContent));
         return fileName;
     })));
     const artifactClient = artifact.create();
-    const uploadResponse = yield artifactClient.uploadArtifact(DEEPBIT_SCAN_RESULTS, [...files, ...(fileLocations || [])], '.', {
+    const uploadResponse = yield artifactClient.uploadArtifact(DEEPBITS_SCAN_RESULTS, [...files, ...(fileLocations || [])], '.', {
         continueOnError: true,
     });
     return {
@@ -181,8 +181,8 @@ const uploadArtifacts = (artifacts, fileLocations) => __awaiter(void 0, void 0, 
 });
 exports.uploadArtifacts = uploadArtifacts;
 const downloadCommitSbomZip = (sbomId) => __awaiter(void 0, void 0, void 0, function* () {
-    if (!(0, fs_1.existsSync)(DEEPBIT_SCAN_RESULTS)) {
-        (0, fs_1.mkdirSync)(DEEPBIT_SCAN_RESULTS);
+    if (!(0, fs_1.existsSync)(DEEPBITS_SCAN_RESULTS)) {
+        (0, fs_1.mkdirSync)(DEEPBITS_SCAN_RESULTS);
     }
     const context = github.context;
     const { sha } = context;
@@ -194,7 +194,7 @@ const downloadCommitSbomZip = (sbomId) => __awaiter(void 0, void 0, void 0, func
         .match(/filename=([^;]+)/)[1]
         .replace(/"/g, '')
         .trim();
-    const fileLocation = `${DEEPBIT_SCAN_RESULTS}/${fileName}`;
+    const fileLocation = `${DEEPBITS_SCAN_RESULTS}/${fileName}`;
     (0, fs_1.writeFileSync)(fileLocation, fileBuffer);
     return fileLocation;
 });

@@ -5,7 +5,7 @@ import axios from 'axios';
 import {existsSync, mkdirSync, writeFileSync} from 'fs';
 import {BASE_URL, TOOLS_URL, getCommitResultUntilScanEnds} from './api';
 
-const DEEPBIT_SCAN_RESULTS = 'DEEPBIT_SCAN_RESULTS';
+const DEEPBITS_SCAN_RESULTS = 'DEEPBITS_SCAN_RESULTS';
 
 export const isRepoPublic = async (): Promise<boolean> => {
   const token = core.getInput('token');
@@ -65,13 +65,13 @@ export const uploadArtifacts = async (
   }[],
   fileLocations?: string[]
 ) => {
-  if (!existsSync(DEEPBIT_SCAN_RESULTS)) {
-    mkdirSync(DEEPBIT_SCAN_RESULTS);
+  if (!existsSync(DEEPBITS_SCAN_RESULTS)) {
+    mkdirSync(DEEPBITS_SCAN_RESULTS);
   }
 
   const files = await Promise.all(
     artifacts.map(async ({name, jsonContent}) => {
-      const fileName = `${DEEPBIT_SCAN_RESULTS}/${name}.json`;
+      const fileName = `${DEEPBITS_SCAN_RESULTS}/${name}.json`;
 
       writeFileSync(fileName, JSON.stringify(jsonContent));
 
@@ -81,7 +81,7 @@ export const uploadArtifacts = async (
 
   const artifactClient = artifact.create();
   const uploadResponse = await artifactClient.uploadArtifact(
-    DEEPBIT_SCAN_RESULTS,
+    DEEPBITS_SCAN_RESULTS,
     [...files, ...(fileLocations || [])],
     '.',
     {
@@ -97,8 +97,8 @@ export const uploadArtifacts = async (
 export const downloadCommitSbomZip = async (
   sbomId: string
 ): Promise<string> => {
-  if (!existsSync(DEEPBIT_SCAN_RESULTS)) {
-    mkdirSync(DEEPBIT_SCAN_RESULTS);
+  if (!existsSync(DEEPBITS_SCAN_RESULTS)) {
+    mkdirSync(DEEPBITS_SCAN_RESULTS);
   }
 
   const context = github.context;
@@ -115,7 +115,7 @@ export const downloadCommitSbomZip = async (
     .match(/filename=([^;]+)/)[1]
     .replace(/"/g, '')
     .trim();
-  const fileLocation = `${DEEPBIT_SCAN_RESULTS}/${fileName}`;
+  const fileLocation = `${DEEPBITS_SCAN_RESULTS}/${fileName}`;
 
   writeFileSync(fileLocation, fileBuffer);
 
