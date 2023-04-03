@@ -1,8 +1,11 @@
 import * as artifact from '@actions/artifact';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
+import axios from 'axios';
 import {existsSync, mkdirSync, writeFileSync} from 'fs';
-import {BASE_URL, getCommitResultUntilScanEnds, TOOLS_URL} from './api';
+import {BASE_URL, TOOLS_URL, getCommitResultUntilScanEnds} from './api';
+
+const DEEPBIT_SCAN_RESULTS = 'DEEPBIT_SCAN_RESULTS';
 
 export const isRepoPublic = async (): Promise<boolean> => {
   const token = core.getInput('token');
@@ -59,17 +62,16 @@ export const uploadArtifacts = async (
   artifacts: {
     name: string;
     jsonContent: any;
-  }[]
+  }[],
+  fileLocations?: string[]
 ) => {
-  const rootDirectory = 'DEEPBITS_SCAN_RESULTS';
-
-  if (!existsSync(rootDirectory)) {
-    mkdirSync(rootDirectory);
+  if (!existsSync(DEEPBIT_SCAN_RESULTS)) {
+    mkdirSync(DEEPBIT_SCAN_RESULTS);
   }
 
   const files = await Promise.all(
     artifacts.map(async ({name, jsonContent}) => {
-      const fileName = `${rootDirectory}/${name}.json`;
+      const fileName = `${DEEPBIT_SCAN_RESULTS}/${name}.json`;
 
       writeFileSync(fileName, JSON.stringify(jsonContent));
 
@@ -79,8 +81,8 @@ export const uploadArtifacts = async (
 
   const artifactClient = artifact.create();
   const uploadResponse = await artifactClient.uploadArtifact(
-    rootDirectory,
-    files,
+    DEEPBIT_SCAN_RESULTS,
+    [...files, ...(fileLocations || [])],
     '.',
     {
       continueOnError: true,
@@ -90,4 +92,32 @@ export const uploadArtifacts = async (
   return {
     success: uploadResponse.failedItems.length === 0,
   };
+};
+
+export const downloadCommitSbomZip = async (
+  sbomId: string
+): Promise<string> => {
+  if (!existsSync(DEEPBIT_SCAN_RESULTS)) {
+    mkdirSync(DEEPBIT_SCAN_RESULTS);
+  }
+
+  const context = github.context;
+
+  const {sha} = context;
+  const {owner, repo} = context.repo;
+
+  const url = `${BASE_URL}/gh/${owner}/${repo}/${sha}/sbom/${sbomId}`;
+
+  const fileResponse = await axios.get(url, {responseType: 'arraybuffer'});
+
+  const fileBuffer = Buffer.from(fileResponse.data);
+  const fileName = fileResponse.headers['content-disposition']
+    .match(/filename=([^;]+)/)[1]
+    .replace(/"/g, '')
+    .trim();
+  const fileLocation = `${DEEPBIT_SCAN_RESULTS}/${fileName}`;
+
+  writeFileSync(fileLocation, fileBuffer);
+
+  return fileLocation;
 };

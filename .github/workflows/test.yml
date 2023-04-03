@@ -9,6 +9,7 @@ on:
     branches:
       - main
       - "releases/*"
+      - RD-977
 
 jobs:
   deepbits-scan:
