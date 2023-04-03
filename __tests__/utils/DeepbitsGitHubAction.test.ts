@@ -2,17 +2,31 @@ import * as artifact from '@actions/artifact';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
 import {afterEach, describe, expect, it, jest} from '@jest/globals';
+import axios from 'axios';
 import * as fs from 'fs';
 import {GitHubCommitDefWithPopulatedScanResult} from '../../src/types/deepbitsApi';
-import * as deepbitsApi from '../../src/utils/api';
 import {
+  downloadCommitSbomZip,
   getScanResult,
   isRepoPublic,
   setInfo,
   uploadArtifacts,
 } from '../../src/utils/DeepbitsGitHubAction';
+import * as deepbitsApi from '../../src/utils/api';
 
 const testToken = 'test-token';
+
+jest.mock('axios', () => {
+  return {
+    get: jest.fn(),
+    create: jest.fn(() => ({
+      interceptors: {
+        request: {use: jest.fn(), eject: jest.fn()},
+        response: {use: jest.fn(), eject: jest.fn()},
+      },
+    })),
+  };
+});
 
 jest.mock('@actions/artifact');
 jest.mock('@actions/core');
@@ -200,6 +214,52 @@ describe('DeepbitsGitHubAction', () => {
         {continueOnError: true}
       );
       expect(result).toEqual({success: false});
+    });
+  });
+
+  describe('downloadCommitSbomZip', () => {
+    const rootDirectory = 'DEEPBITS_SCAN_RESULTS';
+
+    const mkdirSyncMock = jest.spyOn(fs, 'mkdirSync');
+    const writeFileSyncMock = jest.spyOn(fs, 'writeFileSync');
+
+    it('should return the zip file location correctly', async () => {
+      const existsSyncMock = jest
+        .spyOn(fs, 'existsSync')
+        .mockReturnValueOnce(false);
+
+      const sbomId = 'mock_sbom_id';
+
+      const MOCK_FILE_NAME = 'mock_file.zip';
+      const MOCK_CONTENT_DISPOSITION = `attachment; filename="${MOCK_FILE_NAME}"`;
+      const MOCK_ARRAY_BUFFER = new ArrayBuffer(8);
+      const MOCK_FILE_BUFFER = Buffer.from(MOCK_ARRAY_BUFFER);
+
+      const expectedUrl = `${deepbitsApi.BASE_URL}/gh/test-owner/test-repo/test-sha/sbom/${sbomId}`;
+      const expectedFileLocation = `${rootDirectory}/${MOCK_FILE_NAME}`;
+
+      jest.spyOn(axios, 'get').mockResolvedValueOnce({
+        data: MOCK_ARRAY_BUFFER,
+        headers: {
+          'content-disposition': MOCK_CONTENT_DISPOSITION,
+        },
+      });
+
+      const result = await downloadCommitSbomZip(sbomId);
+
+      expect(existsSyncMock).toHaveBeenCalledWith(rootDirectory);
+      expect(mkdirSyncMock).toHaveBeenCalledWith(rootDirectory);
+
+      expect(axios.get).toHaveBeenCalledWith(expectedUrl, {
+        responseType: 'arraybuffer',
+      });
+
+      expect(writeFileSyncMock).toHaveBeenCalledWith(
+        expectedFileLocation,
+        MOCK_FILE_BUFFER
+      );
+
+      expect(result).toEqual(expectedFileLocation);
     });
   });
 });
