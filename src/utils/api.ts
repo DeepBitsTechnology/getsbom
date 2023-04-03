@@ -2,7 +2,7 @@ import * as core from '@actions/core';
 import axios, {AxiosInstance} from 'axios';
 import {GitHubCommitDefWithPopulatedScanResult} from '../types/deepbitsApi';
 
-export const BASE_URL = 'https://api.deepbits.com';
+export const BASE_URL = 'https://apitest.deepbits.com';
 export const TOOLS_URL = 'https://tools.deepbits.com/github';
 
 const RETRY_DELAY = 60 * 1000; // in milliseconds (1 minute)
