@@ -51,14 +51,14 @@ After the scan is complete, an artifact named `DEEPBITS_SCAN_RESULTS` will be ge
 
 | Output                                       | Description                                                                                                                                                                                                      |
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| deepbits-sbom-{{owner}}-{{repo}}-{{sha}}.zip | A ZIP file consists of the SBOM result, along with the signature of the SBOM and Deepbits’ certificate required for verifying the signature. (For example: deepbits-sbom-DeepBitsTechnology-getsbom-14c9954.zip) |
+| deepbits-sbom-{{owner}}-{{repo}}-{{sha}}.zip | A ZIP file consists of the SBOM result, along with the signature of the SBOM and Deepbits’ certificate required for verifying the signature. (For example: deepbits-sbom-DeepBitsTechnology-getsbom-db3bc50.zip) |
 | scanSummary.json                             | Scan result contains vulnerability and malware summary in JSON format                                                                                                                                            |
 
 The structure of the `deepbits-sbom-{{owner}}-{{repo}}-{{sha}}.zip` file is as follows:
 
 | FileName                                  | Description                                                                                |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------ |
-| {{owner}}-{{repo}}-{{sha}}.CycloneDX.json | SBOM in CycloneDX format. (For example: DeepBitsTechnology-getsbom-14c9954.CycloneDX.json) |
+| {{owner}}-{{repo}}-{{sha}}.CycloneDX.json | SBOM in CycloneDX format. (For example: DeepBitsTechnology-getsbom-db3bc50.CycloneDX.json) |
 | CycloneDX.signature.bin                   | The signature of the SBOM                                                                  |
 | deepbits.cert                             | Deepbits’ certificate required for verifying the signature                                 |
 | README.md                                 | Contains instructions on how to verify the signature                                       |
@@ -111,4 +111,4 @@ This project is licensed under the MIT License. Please see the `LICENSE` file fo
 
 ## Support
 
-If you encounter any issues or have any questions about the Deepbits SBOM Scanner GitHub Action, please feel free to contact us at [help@deepbits.com](mailto:help@deepbits.com). We are always happy to help!
+If you encounter any issues or have any questions about the Deepbits SBOM GitHub Action, please feel free to contact us at [help@deepbits.com](mailto:help@deepbits.com). We are always happy to help!
