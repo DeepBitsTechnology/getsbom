@@ -3,6 +3,7 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 import axios from 'axios';
 import {existsSync, mkdirSync, writeFileSync} from 'fs';
+import {inspect} from 'util';
 import {BASE_URL, TOOLS_URL, getCommitResultUntilScanEnds} from './api';
 
 const ROOT_DIRECTORY_NAME = 'DEEPBITS_SCAN_RESULTS';
@@ -122,6 +123,7 @@ export const downloadCommitSbomZip = async (
 
     return fileLocation;
   } catch (error: any) {
+    core.info(inspect({error}));
     if (
       error?.response?.status === 404 &&
       error?.response?.data?.data?.errorReason === 'No bom content found'
