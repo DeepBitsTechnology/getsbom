@@ -119,7 +119,6 @@ const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
 const axios_1 = __importDefault(__nccwpck_require__(8757));
 const fs_1 = __nccwpck_require__(7147);
-const util_1 = __nccwpck_require__(3837);
 const api_1 = __nccwpck_require__(5615);
 const ROOT_DIRECTORY_NAME = 'DEEPBITS_SCAN_RESULTS';
 const isRepoPublic = () => __awaiter(void 0, void 0, void 0, function* () {
@@ -182,7 +181,7 @@ const uploadArtifacts = (artifacts, fileLocations) => __awaiter(void 0, void 0, 
 });
 exports.uploadArtifacts = uploadArtifacts;
 const downloadCommitSbomZip = (sbomId) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c, _d;
+    var _a;
     if (!(0, fs_1.existsSync)(ROOT_DIRECTORY_NAME)) {
         (0, fs_1.mkdirSync)(ROOT_DIRECTORY_NAME);
     }
@@ -202,9 +201,7 @@ const downloadCommitSbomZip = (sbomId) => __awaiter(void 0, void 0, void 0, func
         return fileLocation;
     }
     catch (error) {
-        core.info((0, util_1.inspect)({ error }));
-        if (((_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.status) === 404 &&
-            ((_d = (_c = (_b = error === null || error === void 0 ? void 0 : error.response) === null || _b === void 0 ? void 0 : _b.data) === null || _c === void 0 ? void 0 : _c.data) === null || _d === void 0 ? void 0 : _d.errorReason) === 'No bom content found') {
+        if (((_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.status) === 404) {
             core.info('No SBOM found');
             return undefined;
         }
