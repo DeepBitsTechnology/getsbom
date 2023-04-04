@@ -247,7 +247,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.getCommitResultUntilScanEnds = exports.getCommitResult = exports.callDeepbitsApi = exports.getTimeout = exports.getRetryDelay = exports.TOOLS_URL = exports.BASE_URL = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const axios_1 = __importDefault(__nccwpck_require__(8757));
-exports.BASE_URL = 'https://apitest.deepbits.com';
+exports.BASE_URL = 'https://api.deepbits.com';
 exports.TOOLS_URL = 'https://tools.deepbits.com/github';
 const RETRY_DELAY = 60 * 1000; // in milliseconds (1 minute)
 const TIMEOUT = 3 * 60 * 60 * 1000; // in milliseconds (3 hours)
