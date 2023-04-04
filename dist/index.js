@@ -181,6 +181,7 @@ const uploadArtifacts = (artifacts, fileLocations) => __awaiter(void 0, void 0, 
 });
 exports.uploadArtifacts = uploadArtifacts;
 const downloadCommitSbomZip = (sbomId) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b, _c, _d;
     if (!(0, fs_1.existsSync)(ROOT_DIRECTORY_NAME)) {
         (0, fs_1.mkdirSync)(ROOT_DIRECTORY_NAME);
     }
@@ -188,15 +189,28 @@ const downloadCommitSbomZip = (sbomId) => __awaiter(void 0, void 0, void 0, func
     const { sha } = context;
     const { owner, repo } = context.repo;
     const url = `${api_1.BASE_URL}/gh/${owner}/${repo}/${sha}/sbom/${sbomId}`;
-    const fileResponse = yield axios_1.default.get(url, { responseType: 'arraybuffer' });
-    const fileBuffer = Buffer.from(fileResponse.data);
-    const fileName = fileResponse.headers['content-disposition']
-        .match(/filename=([^;]+)/)[1]
-        .replace(/"/g, '')
-        .trim();
-    const fileLocation = `${ROOT_DIRECTORY_NAME}/${fileName}`;
-    (0, fs_1.writeFileSync)(fileLocation, fileBuffer);
-    return fileLocation;
+    try {
+        const fileResponse = yield axios_1.default.get(url, { responseType: 'arraybuffer' });
+        const fileBuffer = Buffer.from(fileResponse.data);
+        const fileName = fileResponse.headers['content-disposition']
+            .match(/filename=([^;]+)/)[1]
+            .replace(/"/g, '')
+            .trim();
+        const fileLocation = `${ROOT_DIRECTORY_NAME}/${fileName}`;
+        (0, fs_1.writeFileSync)(fileLocation, fileBuffer);
+        return fileLocation;
+    }
+    catch (error) {
+        if (((_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.status) === 404 &&
+            ((_d = (_c = (_b = error === null || error === void 0 ? void 0 : error.response) === null || _b === void 0 ? void 0 : _b.data) === null || _c === void 0 ? void 0 : _c.data) === null || _d === void 0 ? void 0 : _d.errorReason) === 'No bom content found') {
+            core.info('No SBOM found');
+            return undefined;
+        }
+        else {
+            core.setFailed('Failed to download SBOM');
+            throw error;
+        }
+    }
 });
 exports.downloadCommitSbomZip = downloadCommitSbomZip;
 

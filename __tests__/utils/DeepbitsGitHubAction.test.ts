@@ -261,5 +261,74 @@ describe('DeepbitsGitHubAction', () => {
 
       expect(result).toEqual(expectedFileLocation);
     });
+
+    it('should return undefined if no SBOM content found', async () => {
+      const existsSyncMock = jest
+        .spyOn(fs, 'existsSync')
+        .mockReturnValueOnce(false);
+
+      const sbomId = 'mock_sbom_id';
+
+      const expectedUrl = `${deepbitsApi.BASE_URL}/gh/test-owner/test-repo/test-sha/sbom/${sbomId}`;
+
+      const noBomContentFoundError = {
+        response: {
+          status: 404,
+          data: {
+            meta: {
+              code: 404,
+              message: 'Not Found',
+            },
+            data: {
+              errorReason: 'No bom content found',
+            },
+          },
+        },
+      };
+
+      jest.spyOn(axios, 'get').mockRejectedValueOnce(noBomContentFoundError);
+
+      const result = await downloadCommitSbomZip(sbomId);
+
+      expect(existsSyncMock).toHaveBeenCalledWith(rootDirectory);
+      expect(mkdirSyncMock).toHaveBeenCalledWith(rootDirectory);
+
+      expect(axios.get).toHaveBeenCalledWith(expectedUrl, {
+        responseType: 'arraybuffer',
+      });
+
+      expect(writeFileSyncMock).not.toHaveBeenCalled();
+
+      expect(core.info).toHaveBeenCalledWith('No SBOM found');
+
+      expect(result).toEqual(undefined);
+    });
+
+    it('should throw error if get SBOM ZIP failed', async () => {
+      const existsSyncMock = jest
+        .spyOn(fs, 'existsSync')
+        .mockReturnValueOnce(false);
+
+      const sbomId = 'mock_sbom_id';
+
+      const expectedUrl = `${deepbitsApi.BASE_URL}/gh/test-owner/test-repo/test-sha/sbom/${sbomId}`;
+
+      const error = new Error('Request failed with status code 500');
+
+      jest.spyOn(axios, 'get').mockRejectedValueOnce(error);
+
+      await expect(downloadCommitSbomZip(sbomId)).rejects.toThrow();
+
+      expect(existsSyncMock).toHaveBeenCalledWith(rootDirectory);
+      expect(mkdirSyncMock).toHaveBeenCalledWith(rootDirectory);
+
+      expect(axios.get).toHaveBeenCalledWith(expectedUrl, {
+        responseType: 'arraybuffer',
+      });
+
+      expect(writeFileSyncMock).not.toHaveBeenCalled();
+
+      expect(core.setFailed).toHaveBeenCalledWith('Failed to download SBOM');
+    });
   });
 });

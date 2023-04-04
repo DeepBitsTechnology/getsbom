@@ -96,7 +96,7 @@ export const uploadArtifacts = async (
 
 export const downloadCommitSbomZip = async (
   sbomId: string
-): Promise<string> => {
+): Promise<string | undefined> => {
   if (!existsSync(ROOT_DIRECTORY_NAME)) {
     mkdirSync(ROOT_DIRECTORY_NAME);
   }
@@ -108,16 +108,29 @@ export const downloadCommitSbomZip = async (
 
   const url = `${BASE_URL}/gh/${owner}/${repo}/${sha}/sbom/${sbomId}`;
 
-  const fileResponse = await axios.get(url, {responseType: 'arraybuffer'});
+  try {
+    const fileResponse = await axios.get(url, {responseType: 'arraybuffer'});
 
-  const fileBuffer = Buffer.from(fileResponse.data);
-  const fileName = fileResponse.headers['content-disposition']
-    .match(/filename=([^;]+)/)[1]
-    .replace(/"/g, '')
-    .trim();
-  const fileLocation = `${ROOT_DIRECTORY_NAME}/${fileName}`;
+    const fileBuffer = Buffer.from(fileResponse.data);
+    const fileName = fileResponse.headers['content-disposition']
+      .match(/filename=([^;]+)/)[1]
+      .replace(/"/g, '')
+      .trim();
+    const fileLocation = `${ROOT_DIRECTORY_NAME}/${fileName}`;
 
-  writeFileSync(fileLocation, fileBuffer);
+    writeFileSync(fileLocation, fileBuffer);
 
-  return fileLocation;
+    return fileLocation;
+  } catch (error: any) {
+    if (
+      error?.response?.status === 404 &&
+      error?.response?.data?.data?.errorReason === 'No bom content found'
+    ) {
+      core.info('No SBOM found');
+      return undefined;
+    } else {
+      core.setFailed('Failed to download SBOM');
+      throw error;
+    }
+  }
 };
