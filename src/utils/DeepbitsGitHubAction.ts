@@ -1,8 +1,11 @@
 import * as artifact from '@actions/artifact';
 import * as core from '@actions/core';
 import * as github from '@actions/github';
+import axios from 'axios';
 import {existsSync, mkdirSync, writeFileSync} from 'fs';
-import {BASE_URL, getCommitResultUntilScanEnds, TOOLS_URL} from './api';
+import {BASE_URL, TOOLS_URL, getCommitResultUntilScanEnds} from './api';
+
+const ROOT_DIRECTORY_NAME = 'DEEPBITS_SCAN_RESULTS';
 
 export const isRepoPublic = async (): Promise<boolean> => {
   const token = core.getInput('token');
@@ -59,17 +62,16 @@ export const uploadArtifacts = async (
   artifacts: {
     name: string;
     jsonContent: any;
-  }[]
+  }[],
+  fileLocations?: string[]
 ) => {
-  const rootDirectory = 'DEEPBITS_SCAN_RESULTS';
-
-  if (!existsSync(rootDirectory)) {
-    mkdirSync(rootDirectory);
+  if (!existsSync(ROOT_DIRECTORY_NAME)) {
+    mkdirSync(ROOT_DIRECTORY_NAME);
   }
 
   const files = await Promise.all(
     artifacts.map(async ({name, jsonContent}) => {
-      const fileName = `${rootDirectory}/${name}.json`;
+      const fileName = `${ROOT_DIRECTORY_NAME}/${name}.json`;
 
       writeFileSync(fileName, JSON.stringify(jsonContent));
 
@@ -79,8 +81,8 @@ export const uploadArtifacts = async (
 
   const artifactClient = artifact.create();
   const uploadResponse = await artifactClient.uploadArtifact(
-    rootDirectory,
-    files,
+    ROOT_DIRECTORY_NAME,
+    [...files, ...(fileLocations || [])],
     '.',
     {
       continueOnError: true,
@@ -90,4 +92,42 @@ export const uploadArtifacts = async (
   return {
     success: uploadResponse.failedItems.length === 0,
   };
+};
+
+export const downloadCommitSbomZip = async (
+  sbomId: string
+): Promise<string | undefined> => {
+  if (!existsSync(ROOT_DIRECTORY_NAME)) {
+    mkdirSync(ROOT_DIRECTORY_NAME);
+  }
+
+  const context = github.context;
+
+  const {sha} = context;
+  const {owner, repo} = context.repo;
+
+  const url = `${BASE_URL}/gh/${owner}/${repo}/${sha}/sbom/${sbomId}`;
+
+  try {
+    const fileResponse = await axios.get(url, {responseType: 'arraybuffer'});
+
+    const fileBuffer = Buffer.from(fileResponse.data);
+    const fileName = fileResponse.headers['content-disposition']
+      .match(/filename=([^;]+)/)[1]
+      .replace(/"/g, '')
+      .trim();
+    const fileLocation = `${ROOT_DIRECTORY_NAME}/${fileName}`;
+
+    writeFileSync(fileLocation, fileBuffer);
+
+    return fileLocation;
+  } catch (error: any) {
+    if (error?.response?.status === 404) {
+      core.info('No SBOM found');
+      return undefined;
+    } else {
+      core.setFailed('Failed to download SBOM');
+      throw error;
+    }
+  }
 };

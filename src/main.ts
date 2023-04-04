@@ -1,5 +1,6 @@
 import * as core from '@actions/core';
 import {
+  downloadCommitSbomZip,
   getScanResult,
   isRepoPublic,
   setInfo,
@@ -15,14 +16,20 @@ export async function run(): Promise<void> {
       return;
     }
 
-    const scanResult = await getScanResult();
+    const scanResult = (await getScanResult())?.scanResult?.[0];
 
-    const {finalResult} = scanResult?.scanResult?.[0] ?? {};
+    let sbomZipFileLocation: string | undefined;
 
-    await uploadArtifacts([
-      {name: 'sbom.CycloneDX', jsonContent: finalResult?.bom || {}},
-      {name: 'scanSummary', jsonContent: finalResult || {}},
-    ]);
+    if (scanResult?._id) {
+      sbomZipFileLocation = await downloadCommitSbomZip(scanResult._id);
+    }
+
+    const {finalResult} = scanResult ?? {};
+
+    await uploadArtifacts(
+      [{name: 'scanSummary', jsonContent: finalResult || {}}],
+      sbomZipFileLocation ? [sbomZipFileLocation] : undefined
+    );
 
     await setInfo();
   } catch (error) {

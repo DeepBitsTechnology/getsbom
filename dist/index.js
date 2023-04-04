@@ -51,12 +51,13 @@ function run() {
                 core.setFailed('Private repositories are not supported');
                 return;
             }
-            const scanResult = yield (0, DeepbitsGitHubAction_1.getScanResult)();
-            const { finalResult } = (_b = (_a = scanResult === null || scanResult === void 0 ? void 0 : scanResult.scanResult) === null || _a === void 0 ? void 0 : _a[0]) !== null && _b !== void 0 ? _b : {};
-            yield (0, DeepbitsGitHubAction_1.uploadArtifacts)([
-                { name: 'sbom.CycloneDX', jsonContent: (finalResult === null || finalResult === void 0 ? void 0 : finalResult.bom) || {} },
-                { name: 'scanSummary', jsonContent: finalResult || {} },
-            ]);
+            const scanResult = (_b = (_a = (yield (0, DeepbitsGitHubAction_1.getScanResult)())) === null || _a === void 0 ? void 0 : _a.scanResult) === null || _b === void 0 ? void 0 : _b[0];
+            let sbomZipFileLocation;
+            if (scanResult === null || scanResult === void 0 ? void 0 : scanResult._id) {
+                sbomZipFileLocation = yield (0, DeepbitsGitHubAction_1.downloadCommitSbomZip)(scanResult._id);
+            }
+            const { finalResult } = scanResult !== null && scanResult !== void 0 ? scanResult : {};
+            yield (0, DeepbitsGitHubAction_1.uploadArtifacts)([{ name: 'scanSummary', jsonContent: finalResult || {} }], sbomZipFileLocation ? [sbomZipFileLocation] : undefined);
             yield (0, DeepbitsGitHubAction_1.setInfo)();
         }
         catch (error) {
@@ -108,13 +109,18 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.uploadArtifacts = exports.setInfo = exports.getScanResult = exports.isRepoPublic = void 0;
+exports.downloadCommitSbomZip = exports.uploadArtifacts = exports.setInfo = exports.getScanResult = exports.isRepoPublic = void 0;
 const artifact = __importStar(__nccwpck_require__(2605));
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
+const axios_1 = __importDefault(__nccwpck_require__(8757));
 const fs_1 = __nccwpck_require__(7147);
 const api_1 = __nccwpck_require__(5615);
+const ROOT_DIRECTORY_NAME = 'DEEPBITS_SCAN_RESULTS';
 const isRepoPublic = () => __awaiter(void 0, void 0, void 0, function* () {
     const token = core.getInput('token');
     const context = github.context;
@@ -156,18 +162,17 @@ const setInfo = () => __awaiter(void 0, void 0, void 0, function* () {
     }
 });
 exports.setInfo = setInfo;
-const uploadArtifacts = (artifacts) => __awaiter(void 0, void 0, void 0, function* () {
-    const rootDirectory = 'DEEPBITS_SCAN_RESULTS';
-    if (!(0, fs_1.existsSync)(rootDirectory)) {
-        (0, fs_1.mkdirSync)(rootDirectory);
+const uploadArtifacts = (artifacts, fileLocations) => __awaiter(void 0, void 0, void 0, function* () {
+    if (!(0, fs_1.existsSync)(ROOT_DIRECTORY_NAME)) {
+        (0, fs_1.mkdirSync)(ROOT_DIRECTORY_NAME);
     }
     const files = yield Promise.all(artifacts.map(({ name, jsonContent }) => __awaiter(void 0, void 0, void 0, function* () {
-        const fileName = `${rootDirectory}/${name}.json`;
+        const fileName = `${ROOT_DIRECTORY_NAME}/${name}.json`;
         (0, fs_1.writeFileSync)(fileName, JSON.stringify(jsonContent));
         return fileName;
     })));
     const artifactClient = artifact.create();
-    const uploadResponse = yield artifactClient.uploadArtifact(rootDirectory, files, '.', {
+    const uploadResponse = yield artifactClient.uploadArtifact(ROOT_DIRECTORY_NAME, [...files, ...(fileLocations || [])], '.', {
         continueOnError: true,
     });
     return {
@@ -175,6 +180,38 @@ const uploadArtifacts = (artifacts) => __awaiter(void 0, void 0, void 0, functio
     };
 });
 exports.uploadArtifacts = uploadArtifacts;
+const downloadCommitSbomZip = (sbomId) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a;
+    if (!(0, fs_1.existsSync)(ROOT_DIRECTORY_NAME)) {
+        (0, fs_1.mkdirSync)(ROOT_DIRECTORY_NAME);
+    }
+    const context = github.context;
+    const { sha } = context;
+    const { owner, repo } = context.repo;
+    const url = `${api_1.BASE_URL}/gh/${owner}/${repo}/${sha}/sbom/${sbomId}`;
+    try {
+        const fileResponse = yield axios_1.default.get(url, { responseType: 'arraybuffer' });
+        const fileBuffer = Buffer.from(fileResponse.data);
+        const fileName = fileResponse.headers['content-disposition']
+            .match(/filename=([^;]+)/)[1]
+            .replace(/"/g, '')
+            .trim();
+        const fileLocation = `${ROOT_DIRECTORY_NAME}/${fileName}`;
+        (0, fs_1.writeFileSync)(fileLocation, fileBuffer);
+        return fileLocation;
+    }
+    catch (error) {
+        if (((_a = error === null || error === void 0 ? void 0 : error.response) === null || _a === void 0 ? void 0 : _a.status) === 404) {
+            core.info('No SBOM found');
+            return undefined;
+        }
+        else {
+            core.setFailed('Failed to download SBOM');
+            throw error;
+        }
+    }
+});
+exports.downloadCommitSbomZip = downloadCommitSbomZip;
 
 
 /***/ }),
