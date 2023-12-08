@@ -46,19 +46,28 @@ function run() {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
         try {
+            if (!(yield (0, DeepbitsGitHubAction_1.isProperEvent)())) {
+                core.setFailed('This action is available for branch push only at the moment.');
+                return;
+            }
             const isPublic = yield (0, DeepbitsGitHubAction_1.isRepoPublic)();
             if (!isPublic) {
                 core.setFailed('Private repositories are not supported.');
                 return;
             }
-            const scanResult = (_a = (yield (0, DeepbitsGitHubAction_1.getScanResult)())) === null || _a === void 0 ? void 0 : _a.scanResult;
+            const branchName = (0, DeepbitsGitHubAction_1.getBranchName)();
+            if (!branchName) {
+                core.setFailed('Branch name is not available.');
+                return;
+            }
+            const scanResult = (_a = (yield (0, DeepbitsGitHubAction_1.getScanResult)(branchName))) === null || _a === void 0 ? void 0 : _a.scanResult;
             let sbomZipFileLocation;
             if (scanResult === null || scanResult === void 0 ? void 0 : scanResult._id) {
                 sbomZipFileLocation = yield (0, DeepbitsGitHubAction_1.downloadCommitSbomZip)(scanResult._id);
             }
             const { finalResult } = scanResult !== null && scanResult !== void 0 ? scanResult : {};
             yield (0, DeepbitsGitHubAction_1.uploadArtifacts)([{ name: 'scanSummary', jsonContent: finalResult || {} }], sbomZipFileLocation ? [sbomZipFileLocation] : undefined);
-            yield (0, DeepbitsGitHubAction_1.setInfo)();
+            yield (0, DeepbitsGitHubAction_1.setInfo)(branchName);
         }
         catch (error) {
             if (error instanceof Error)
@@ -113,7 +122,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.downloadCommitSbomZip = exports.uploadArtifacts = exports.setInfo = exports.getScanResult = exports.isRepoPublic = void 0;
+exports.downloadCommitSbomZip = exports.uploadArtifacts = exports.setInfo = exports.getScanResult = exports.getBranchName = exports.isRepoPublic = exports.isProperEvent = void 0;
 const artifact = __importStar(__nccwpck_require__(2605));
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
@@ -121,6 +130,11 @@ const axios_1 = __importDefault(__nccwpck_require__(8757));
 const fs_1 = __nccwpck_require__(7147);
 const api_1 = __nccwpck_require__(5615);
 const ROOT_DIRECTORY_NAME = 'DEEPBITS_SCAN_RESULTS';
+const isProperEvent = () => __awaiter(void 0, void 0, void 0, function* () {
+    const eventName = github.context.eventName;
+    return eventName === 'push';
+});
+exports.isProperEvent = isProperEvent;
 const isRepoPublic = () => __awaiter(void 0, void 0, void 0, function* () {
     const token = core.getInput('token');
     const context = github.context;
@@ -130,22 +144,30 @@ const isRepoPublic = () => __awaiter(void 0, void 0, void 0, function* () {
     return !data.private;
 });
 exports.isRepoPublic = isRepoPublic;
-const getScanResult = () => __awaiter(void 0, void 0, void 0, function* () {
+const getBranchName = () => {
     const context = github.context;
-    const { ref, sha } = context;
+    const { ref } = context;
+    const prHeadRef = process.env.GITHUB_HEAD_REF;
+    return github.context.eventName === 'pull_request'
+        ? prHeadRef
+        : ref.replace('refs/heads/', '');
+};
+exports.getBranchName = getBranchName;
+const getScanResult = (branchName) => __awaiter(void 0, void 0, void 0, function* () {
+    const context = github.context;
+    const { sha } = context;
     const { owner, repo } = context.repo;
     const result = yield (0, api_1.getCommitResultUntilScanEnds)({
         owner,
         repo,
-        branchName: ref.replace('refs/heads/', ''),
+        branchName,
         sha,
     });
     return result;
 });
 exports.getScanResult = getScanResult;
-const setInfo = () => __awaiter(void 0, void 0, void 0, function* () {
+const setInfo = (branchName) => __awaiter(void 0, void 0, void 0, function* () {
     const context = github.context;
-    const { ref } = context;
     const { owner, repo } = context.repo;
     const infoList = [
         {
@@ -154,7 +176,7 @@ const setInfo = () => __awaiter(void 0, void 0, void 0, function* () {
         },
         {
             name: 'DEEPSCA_BRANCH',
-            value: `${api_1.TOOLS_URL}/${owner}/${repo}/${ref.replace('refs/heads/', '')}`,
+            value: `${api_1.TOOLS_URL}/${owner}/${repo}/${branchName}`,
         },
         {
             name: 'DEEPBITS_BADGE',
