@@ -12,11 +12,11 @@ export async function run(): Promise<void> {
     const isPublic = await isRepoPublic();
 
     if (!isPublic) {
-      core.setFailed('Private repositories are not supported');
+      core.setFailed('Private repositories are not supported.');
       return;
     }
 
-    const scanResult = (await getScanResult())?.scanResult?.[0];
+    const scanResult = (await getScanResult())?.scanResult;
 
     let sbomZipFileLocation: string | undefined;
 

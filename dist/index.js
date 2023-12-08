@@ -43,15 +43,15 @@ exports.run = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const DeepbitsGitHubAction_1 = __nccwpck_require__(469);
 function run() {
-    var _a, _b;
+    var _a;
     return __awaiter(this, void 0, void 0, function* () {
         try {
             const isPublic = yield (0, DeepbitsGitHubAction_1.isRepoPublic)();
             if (!isPublic) {
-                core.setFailed('Private repositories are not supported');
+                core.setFailed('Private repositories are not supported.');
                 return;
             }
-            const scanResult = (_b = (_a = (yield (0, DeepbitsGitHubAction_1.getScanResult)())) === null || _a === void 0 ? void 0 : _a.scanResult) === null || _b === void 0 ? void 0 : _b[0];
+            const scanResult = (_a = (yield (0, DeepbitsGitHubAction_1.getScanResult)())) === null || _a === void 0 ? void 0 : _a.scanResult;
             let sbomZipFileLocation;
             if (scanResult === null || scanResult === void 0 ? void 0 : scanResult._id) {
                 sbomZipFileLocation = yield (0, DeepbitsGitHubAction_1.downloadCommitSbomZip)(scanResult._id);
@@ -132,24 +132,29 @@ const isRepoPublic = () => __awaiter(void 0, void 0, void 0, function* () {
 exports.isRepoPublic = isRepoPublic;
 const getScanResult = () => __awaiter(void 0, void 0, void 0, function* () {
     const context = github.context;
-    const { sha } = context;
+    const { ref, sha } = context;
     const { owner, repo } = context.repo;
-    const result = yield (0, api_1.getCommitResultUntilScanEnds)({ owner, repo, sha });
+    const result = yield (0, api_1.getCommitResultUntilScanEnds)({
+        owner,
+        repo,
+        branchName: ref.replace('refs/heads/', ''),
+        sha,
+    });
     return result;
 });
 exports.getScanResult = getScanResult;
 const setInfo = () => __awaiter(void 0, void 0, void 0, function* () {
     const context = github.context;
-    const { sha } = context;
+    const { ref } = context;
     const { owner, repo } = context.repo;
     const infoList = [
         {
-            name: 'DEEPBITS_REPO',
+            name: 'DEEPSCA_REPO',
             value: `${api_1.TOOLS_URL}/${owner}/${repo}`,
         },
         {
-            name: 'DEEPBITS_COMMIT',
-            value: `${api_1.TOOLS_URL}/${owner}/${repo}/${sha}`,
+            name: 'DEEPSCA_BRANCH',
+            value: `${api_1.TOOLS_URL}/${owner}/${repo}/${ref.replace('refs/heads/', '')}`,
         },
         {
             name: 'DEEPBITS_BADGE',
@@ -277,28 +282,29 @@ const createInstance = (baseUrl) => {
     });
     instance.interceptors.request.use((config) => __awaiter(void 0, void 0, void 0, function* () {
         config.headers.set('Content-Type', 'application/json');
+        config.headers.set('x-public-tool', true);
         return config;
     }), onError);
     instance.interceptors.response.use(response => response.data, onError);
     return instance;
 };
 exports.callDeepbitsApi = createInstance(exports.BASE_URL);
-const getCommitResult = ({ owner, repo, sha, }) => __awaiter(void 0, void 0, void 0, function* () {
-    const url = `/gha/${owner}/${repo}/${sha}`;
+const getCommitResult = ({ owner, repo, branchName, sha, }) => __awaiter(void 0, void 0, void 0, function* () {
+    const url = `/gha/${owner}/${repo}/${encodeURIComponent(branchName)}/${sha}`;
     const result = yield exports.callDeepbitsApi.get(url);
     return result.data;
 });
 exports.getCommitResult = getCommitResult;
-const getCommitResultUntilScanEnds = ({ owner, repo, sha, }) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c;
+const getCommitResultUntilScanEnds = ({ owner, repo, branchName, sha, }) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
     const retryDelay = (0, exports.getRetryDelay)();
     const timeOut = (0, exports.getTimeout)();
     const startTime = Date.now();
     let scanResult;
     while (Date.now() - startTime < timeOut) {
         try {
-            scanResult = yield (0, exports.getCommitResult)({ owner, repo, sha });
-            if ((_b = (_a = scanResult === null || scanResult === void 0 ? void 0 : scanResult.scanResult) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.scanEndAt) {
+            scanResult = yield (0, exports.getCommitResult)({ owner, repo, branchName, sha });
+            if ((_a = scanResult === null || scanResult === void 0 ? void 0 : scanResult.scanResult) === null || _a === void 0 ? void 0 : _a.scanEndAt) {
                 core.info('Scan finished');
                 return scanResult;
             }
@@ -309,7 +315,7 @@ const getCommitResultUntilScanEnds = ({ owner, repo, sha, }) => __awaiter(void 0
             }
         }
         catch (error) {
-            if (((_c = error === null || error === void 0 ? void 0 : error.response) === null || _c === void 0 ? void 0 : _c.status) === 404) {
+            if (((_b = error === null || error === void 0 ? void 0 : error.response) === null || _b === void 0 ? void 0 : _b.status) === 404) {
                 core.debug('Repo/commit not added yet');
                 yield new Promise(resolve => setTimeout(resolve, retryDelay));
                 continue;

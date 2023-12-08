@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       SCAN_BADGE: ${{ steps.deepbits-scan.outputs.DEEPBITS_BADGE }}
-      DEEPBITS_LINK: ${{ steps.deepbits-scan.outputs.DEEPBITS_COMMIT }}
+      DEEPSCA_BRANCH_LINK: ${{ steps.deepbits-scan.outputs.DEEPSCA_BRANCH }}
     steps:
       - uses: actions/checkout@v3
 
@@ -35,7 +35,7 @@ jobs:
             ---
 
             Powered by [**Deepbits**](https://deepbits.com):
-            - Scan Details: ${{ needs.deepbits-scan.outputs.DEEPBITS_LINK }}
+            - Scan Details: ${{ needs.deepbits-scan.outputs.DEEPSCA_BRANCH_LINK }}
             - Badge: ${{ needs.deepbits-scan.outputs.SCAN_BADGE }}
 
   download-artifact:

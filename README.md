@@ -38,8 +38,8 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       SCAN_BADGE: ${{ steps.deepbits-scan.outputs.DEEPBITS_BADGE }}
-      DEEPBITS_COMMIT_LINK: ${{ steps.deepbits-scan.outputs.DEEPBITS_COMMIT }}
-      DEEPBITS_REPO_LINK: ${{ steps.deepbits-scan.outputs.DEEPBITS_REPO }}
+      DEEPSCA_BRANCH_LINK: ${{ steps.deepbits-scan.outputs.DEEPSCA_BRANCH }}
+      DEEPSCA_REPO_LINK: ${{ steps.deepbits-scan.outputs.DEEPSCA_REPO }}
     steps:
       - uses: DeepBitsTechnology/getsbom@v1
         id: deepbits-scan
@@ -71,22 +71,22 @@ We hope that these examples will help you understand the capabilities of our act
 
 ## Actions Outputs
 
-In addition to the artifact, you may also view the scan results and your previous scan histories on [DeepRepo](https://tools.deepbits.com/github).
+In addition to the artifact, you may also view the scan results and your previous scan histories on [DeepSCA](https://tools.deepbits.com).
 
 Additionally, a SVG is available that can be included in your README file.
 
 To obtain these outputs, please refer to the three options listed below:
 
-| Output          | Description                                                 |
-| --------------- | ----------------------------------------------------------- |
-| DEEPBITS_REPO   | The URL to access the repo details of DeepRepo              |
-| DEEPBITS_COMMIT | The URL to access the scan report of the commit on DeepRepo |
-| DEEPBITS_BADGE  | A SVG badge displaying the status of the the repo           |
+| Output         | Description                                                |
+| -------------- | ---------------------------------------------------------- |
+| DEEPSCA_REPO   | The URL to access the repo details of DeepSCA              |
+| DEEPSCA_BRANCH | The URL to access the scan report of the branch on DeepSCA |
+| DEEPBITS_BADGE | A SVG badge displaying the status of the the repo          |
 
 You can add the SVG badge to your README.md file like this:
 
 ```markdown
-[![SBOM status]({{DEEPBITS_BADGE}})]({{DEEPBITS_REPO}})
+[![SBOM status]({{DEEPBITS_BADGE}})]({{DEEPSCA_REPO}})
 ```
 
 For example, the badge for this repository is:
@@ -97,11 +97,11 @@ For example, the badge for this repository is:
 
 [![SBOM status](https://api.deepbits.com/gh/DeepBitsTechnology/getsbom/badge)](https://tools.deepbits.com/github/DeepBitsTechnology/getsbom)
 
-**The image below is a screenshot of a scan result on [DeepRepo](https://tools.deepbits.com/github), which is accessible through the `DEEPBITS_COMMIT` output.**
+**The image below is a screenshot of a scan result on [DeepSCA](https://tools.deepbits.com), which is accessible through the `DEEPSCA_BRANCH` output.**
 
-![Scan result on DeepRepo](./samples/deeprepo_scan_screenshots.png)
+![Scan result on DeepSCA](./samples/deeprepo_scan_screenshots.png)
 
-The scan results displayed in DeepRepo are interactive and allow you to view detailed information about the components used in your project, as well as any vulnerabilities or licensing issues detected during the scan.
+The scan results displayed in DeepSCA are interactive and allow you to view detailed information about the components used in your project, as well as any vulnerabilities or licensing issues detected during the scan.
 
 Click [this URL](https://tools.deepbits.com/github/DeepBitsTechnology/getsbom/d29263777ef33157254ff4207ca00cedf0d537e1) to see the comprehensive view of the screenshot results.
 

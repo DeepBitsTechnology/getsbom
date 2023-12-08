@@ -23,10 +23,15 @@ export const isRepoPublic = async (): Promise<boolean> => {
 export const getScanResult = async () => {
   const context = github.context;
 
-  const {sha} = context;
+  const {ref, sha} = context;
   const {owner, repo} = context.repo;
 
-  const result = await getCommitResultUntilScanEnds({owner, repo, sha});
+  const result = await getCommitResultUntilScanEnds({
+    owner,
+    repo,
+    branchName: ref.replace('refs/heads/', ''),
+    sha,
+  });
 
   return result;
 };
@@ -34,17 +39,17 @@ export const getScanResult = async () => {
 export const setInfo = async () => {
   const context = github.context;
 
-  const {sha} = context;
+  const {ref} = context;
   const {owner, repo} = context.repo;
 
   const infoList = [
     {
-      name: 'DEEPBITS_REPO',
+      name: 'DEEPSCA_REPO',
       value: `${TOOLS_URL}/${owner}/${repo}`,
     },
     {
-      name: 'DEEPBITS_COMMIT',
-      value: `${TOOLS_URL}/${owner}/${repo}/${sha}`,
+      name: 'DEEPSCA_BRANCH',
+      value: `${TOOLS_URL}/${owner}/${repo}/${ref.replace('refs/heads/', '')}`,
     },
     {
       name: 'DEEPBITS_BADGE',

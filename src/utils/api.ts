@@ -1,6 +1,6 @@
 import * as core from '@actions/core';
 import axios, {AxiosInstance} from 'axios';
-import {GitHubCommitDefWithPopulatedScanResult} from '../types/deepbitsApi';
+import {ScanResultResponse} from '../types/deepbitsApi';
 
 export const BASE_URL = 'https://api.deepbits.com';
 export const TOOLS_URL = 'https://tools.deepbits.com/github';
@@ -22,6 +22,7 @@ const createInstance = (baseUrl: string): AxiosInstance => {
 
   instance.interceptors.request.use(async config => {
     config.headers.set('Content-Type', 'application/json');
+    config.headers.set('x-public-tool', true);
     return config;
   }, onError);
 
@@ -35,13 +36,15 @@ export const callDeepbitsApi = createInstance(BASE_URL);
 export const getCommitResult = async ({
   owner,
   repo,
+  branchName,
   sha,
 }: {
   owner: string;
   repo: string;
+  branchName: string;
   sha: string;
-}): Promise<GitHubCommitDefWithPopulatedScanResult> => {
-  const url = `/gha/${owner}/${repo}/${sha}`;
+}): Promise<ScanResultResponse> => {
+  const url = `/gha/${owner}/${repo}/${encodeURIComponent(branchName)}/${sha}`;
 
   const result = await callDeepbitsApi.get(url);
 
@@ -51,12 +54,14 @@ export const getCommitResult = async ({
 export const getCommitResultUntilScanEnds = async ({
   owner,
   repo,
+  branchName,
   sha,
 }: {
   owner: string;
   repo: string;
+  branchName: string;
   sha: string;
-}): Promise<GitHubCommitDefWithPopulatedScanResult | undefined> => {
+}): Promise<ScanResultResponse | undefined> => {
   const retryDelay = getRetryDelay();
   const timeOut = getTimeout();
   const startTime = Date.now();
@@ -65,9 +70,9 @@ export const getCommitResultUntilScanEnds = async ({
 
   while (Date.now() - startTime < timeOut) {
     try {
-      scanResult = await getCommitResult({owner, repo, sha});
+      scanResult = await getCommitResult({owner, repo, branchName, sha});
 
-      if (scanResult?.scanResult?.[0]?.scanEndAt) {
+      if (scanResult?.scanResult?.scanEndAt) {
         core.info('Scan finished');
         return scanResult;
       } else {
