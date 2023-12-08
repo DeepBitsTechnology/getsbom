@@ -7,6 +7,12 @@ import {BASE_URL, TOOLS_URL, getCommitResultUntilScanEnds} from './api';
 
 const ROOT_DIRECTORY_NAME = 'DEEPBITS_SCAN_RESULTS';
 
+export const isProperEvent = async (): Promise<boolean> => {
+  const eventName = github.context.eventName;
+
+  return eventName === 'push';
+};
+
 export const isRepoPublic = async (): Promise<boolean> => {
   const token = core.getInput('token');
   const context = github.context;
@@ -20,31 +26,46 @@ export const isRepoPublic = async (): Promise<boolean> => {
   return !data.private;
 };
 
-export const getScanResult = async () => {
+export const getBranchName = () => {
+  const context = github.context;
+
+  const {ref} = context;
+  const prHeadRef = process.env.GITHUB_HEAD_REF;
+
+  return github.context.eventName === 'pull_request'
+    ? prHeadRef
+    : ref.replace('refs/heads/', '');
+};
+
+export const getScanResult = async (branchName: string) => {
   const context = github.context;
 
   const {sha} = context;
   const {owner, repo} = context.repo;
 
-  const result = await getCommitResultUntilScanEnds({owner, repo, sha});
+  const result = await getCommitResultUntilScanEnds({
+    owner,
+    repo,
+    branchName,
+    sha,
+  });
 
   return result;
 };
 
-export const setInfo = async () => {
+export const setInfo = async (branchName: string) => {
   const context = github.context;
 
-  const {sha} = context;
   const {owner, repo} = context.repo;
 
   const infoList = [
     {
-      name: 'DEEPBITS_REPO',
+      name: 'DEEPSCA_REPO',
       value: `${TOOLS_URL}/${owner}/${repo}`,
     },
     {
-      name: 'DEEPBITS_COMMIT',
-      value: `${TOOLS_URL}/${owner}/${repo}/${sha}`,
+      name: 'DEEPSCA_BRANCH',
+      value: `${TOOLS_URL}/${owner}/${repo}/${branchName}`,
     },
     {
       name: 'DEEPBITS_BADGE',

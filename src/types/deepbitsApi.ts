@@ -37,9 +37,8 @@ export type ScanResult = {
   sbomResult?: SBOMInfo[];
 };
 
-export type GitHubCommitDefWithPopulatedScanResult = Omit<
-  GitHubCommitDef,
-  'scanResult'
-> & {
-  scanResult?: ScanResult[];
-};
+export interface ScanResultResponse {
+  scanResult?: ScanResult;
+  resourceMetaData?: any; // TODO: Feature Roadmap
+  sbomStream?: any; // TODO: Feature Roadmap
+}

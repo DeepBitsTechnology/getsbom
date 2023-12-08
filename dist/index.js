@@ -43,22 +43,31 @@ exports.run = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const DeepbitsGitHubAction_1 = __nccwpck_require__(469);
 function run() {
-    var _a, _b;
+    var _a;
     return __awaiter(this, void 0, void 0, function* () {
         try {
-            const isPublic = yield (0, DeepbitsGitHubAction_1.isRepoPublic)();
-            if (!isPublic) {
-                core.setFailed('Private repositories are not supported');
+            if (!(yield (0, DeepbitsGitHubAction_1.isProperEvent)())) {
+                core.setFailed('This action is available for branch push only at the moment.');
                 return;
             }
-            const scanResult = (_b = (_a = (yield (0, DeepbitsGitHubAction_1.getScanResult)())) === null || _a === void 0 ? void 0 : _a.scanResult) === null || _b === void 0 ? void 0 : _b[0];
+            const isPublic = yield (0, DeepbitsGitHubAction_1.isRepoPublic)();
+            if (!isPublic) {
+                core.setFailed('Private repositories are not supported.');
+                return;
+            }
+            const branchName = (0, DeepbitsGitHubAction_1.getBranchName)();
+            if (!branchName) {
+                core.setFailed('Branch name is not available.');
+                return;
+            }
+            const scanResult = (_a = (yield (0, DeepbitsGitHubAction_1.getScanResult)(branchName))) === null || _a === void 0 ? void 0 : _a.scanResult;
             let sbomZipFileLocation;
             if (scanResult === null || scanResult === void 0 ? void 0 : scanResult._id) {
                 sbomZipFileLocation = yield (0, DeepbitsGitHubAction_1.downloadCommitSbomZip)(scanResult._id);
             }
             const { finalResult } = scanResult !== null && scanResult !== void 0 ? scanResult : {};
             yield (0, DeepbitsGitHubAction_1.uploadArtifacts)([{ name: 'scanSummary', jsonContent: finalResult || {} }], sbomZipFileLocation ? [sbomZipFileLocation] : undefined);
-            yield (0, DeepbitsGitHubAction_1.setInfo)();
+            yield (0, DeepbitsGitHubAction_1.setInfo)(branchName);
         }
         catch (error) {
             if (error instanceof Error)
@@ -113,7 +122,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.downloadCommitSbomZip = exports.uploadArtifacts = exports.setInfo = exports.getScanResult = exports.isRepoPublic = void 0;
+exports.downloadCommitSbomZip = exports.uploadArtifacts = exports.setInfo = exports.getScanResult = exports.getBranchName = exports.isRepoPublic = exports.isProperEvent = void 0;
 const artifact = __importStar(__nccwpck_require__(2605));
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
@@ -121,6 +130,11 @@ const axios_1 = __importDefault(__nccwpck_require__(8757));
 const fs_1 = __nccwpck_require__(7147);
 const api_1 = __nccwpck_require__(5615);
 const ROOT_DIRECTORY_NAME = 'DEEPBITS_SCAN_RESULTS';
+const isProperEvent = () => __awaiter(void 0, void 0, void 0, function* () {
+    const eventName = github.context.eventName;
+    return eventName === 'push';
+});
+exports.isProperEvent = isProperEvent;
 const isRepoPublic = () => __awaiter(void 0, void 0, void 0, function* () {
     const token = core.getInput('token');
     const context = github.context;
@@ -130,26 +144,39 @@ const isRepoPublic = () => __awaiter(void 0, void 0, void 0, function* () {
     return !data.private;
 });
 exports.isRepoPublic = isRepoPublic;
-const getScanResult = () => __awaiter(void 0, void 0, void 0, function* () {
+const getBranchName = () => {
+    const context = github.context;
+    const { ref } = context;
+    const prHeadRef = process.env.GITHUB_HEAD_REF;
+    return github.context.eventName === 'pull_request'
+        ? prHeadRef
+        : ref.replace('refs/heads/', '');
+};
+exports.getBranchName = getBranchName;
+const getScanResult = (branchName) => __awaiter(void 0, void 0, void 0, function* () {
     const context = github.context;
     const { sha } = context;
     const { owner, repo } = context.repo;
-    const result = yield (0, api_1.getCommitResultUntilScanEnds)({ owner, repo, sha });
+    const result = yield (0, api_1.getCommitResultUntilScanEnds)({
+        owner,
+        repo,
+        branchName,
+        sha,
+    });
     return result;
 });
 exports.getScanResult = getScanResult;
-const setInfo = () => __awaiter(void 0, void 0, void 0, function* () {
+const setInfo = (branchName) => __awaiter(void 0, void 0, void 0, function* () {
     const context = github.context;
-    const { sha } = context;
     const { owner, repo } = context.repo;
     const infoList = [
         {
-            name: 'DEEPBITS_REPO',
+            name: 'DEEPSCA_REPO',
             value: `${api_1.TOOLS_URL}/${owner}/${repo}`,
         },
         {
-            name: 'DEEPBITS_COMMIT',
-            value: `${api_1.TOOLS_URL}/${owner}/${repo}/${sha}`,
+            name: 'DEEPSCA_BRANCH',
+            value: `${api_1.TOOLS_URL}/${owner}/${repo}/${branchName}`,
         },
         {
             name: 'DEEPBITS_BADGE',
@@ -277,28 +304,29 @@ const createInstance = (baseUrl) => {
     });
     instance.interceptors.request.use((config) => __awaiter(void 0, void 0, void 0, function* () {
         config.headers.set('Content-Type', 'application/json');
+        config.headers.set('x-public-tool', true);
         return config;
     }), onError);
     instance.interceptors.response.use(response => response.data, onError);
     return instance;
 };
 exports.callDeepbitsApi = createInstance(exports.BASE_URL);
-const getCommitResult = ({ owner, repo, sha, }) => __awaiter(void 0, void 0, void 0, function* () {
-    const url = `/gha/${owner}/${repo}/${sha}`;
+const getCommitResult = ({ owner, repo, branchName, sha, }) => __awaiter(void 0, void 0, void 0, function* () {
+    const url = `/gha/${owner}/${repo}/${encodeURIComponent(branchName)}/${sha}`;
     const result = yield exports.callDeepbitsApi.get(url);
     return result.data;
 });
 exports.getCommitResult = getCommitResult;
-const getCommitResultUntilScanEnds = ({ owner, repo, sha, }) => __awaiter(void 0, void 0, void 0, function* () {
-    var _a, _b, _c;
+const getCommitResultUntilScanEnds = ({ owner, repo, branchName, sha, }) => __awaiter(void 0, void 0, void 0, function* () {
+    var _a, _b;
     const retryDelay = (0, exports.getRetryDelay)();
     const timeOut = (0, exports.getTimeout)();
     const startTime = Date.now();
     let scanResult;
     while (Date.now() - startTime < timeOut) {
         try {
-            scanResult = yield (0, exports.getCommitResult)({ owner, repo, sha });
-            if ((_b = (_a = scanResult === null || scanResult === void 0 ? void 0 : scanResult.scanResult) === null || _a === void 0 ? void 0 : _a[0]) === null || _b === void 0 ? void 0 : _b.scanEndAt) {
+            scanResult = yield (0, exports.getCommitResult)({ owner, repo, branchName, sha });
+            if ((_a = scanResult === null || scanResult === void 0 ? void 0 : scanResult.scanResult) === null || _a === void 0 ? void 0 : _a.scanEndAt) {
                 core.info('Scan finished');
                 return scanResult;
             }
@@ -309,7 +337,7 @@ const getCommitResultUntilScanEnds = ({ owner, repo, sha, }) => __awaiter(void 0
             }
         }
         catch (error) {
-            if (((_c = error === null || error === void 0 ? void 0 : error.response) === null || _c === void 0 ? void 0 : _c.status) === 404) {
+            if (((_b = error === null || error === void 0 ? void 0 : error.response) === null || _b === void 0 ? void 0 : _b.status) === 404) {
                 core.debug('Repo/commit not added yet');
                 yield new Promise(resolve => setTimeout(resolve, retryDelay));
                 continue;

@@ -1,7 +1,9 @@
 import * as core from '@actions/core';
 import {
   downloadCommitSbomZip,
+  getBranchName,
   getScanResult,
+  isProperEvent,
   isRepoPublic,
   setInfo,
   uploadArtifacts,
@@ -9,14 +11,28 @@ import {
 
 export async function run(): Promise<void> {
   try {
-    const isPublic = await isRepoPublic();
-
-    if (!isPublic) {
-      core.setFailed('Private repositories are not supported');
+    if (!(await isProperEvent())) {
+      core.setFailed(
+        'This action is available for branch push only at the moment.'
+      );
       return;
     }
 
-    const scanResult = (await getScanResult())?.scanResult?.[0];
+    const isPublic = await isRepoPublic();
+
+    if (!isPublic) {
+      core.setFailed('Private repositories are not supported.');
+      return;
+    }
+
+    const branchName = getBranchName();
+
+    if (!branchName) {
+      core.setFailed('Branch name is not available.');
+      return;
+    }
+
+    const scanResult = (await getScanResult(branchName))?.scanResult;
 
     let sbomZipFileLocation: string | undefined;
 
@@ -31,7 +47,7 @@ export async function run(): Promise<void> {
       sbomZipFileLocation ? [sbomZipFileLocation] : undefined
     );
 
-    await setInfo();
+    await setInfo(branchName);
   } catch (error) {
     if (error instanceof Error) core.setFailed(error.message);
   }
