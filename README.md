@@ -99,11 +99,11 @@ For example, the badge for this repository is:
 
 **The image below is a screenshot of a scan result on [DeepSCA](https://tools.deepbits.com), which is accessible through the `DEEPSCA_BRANCH` output.**
 
-![Scan result on DeepSCA](./samples/deeprepo_scan_screenshots.png)
+![Scan result on DeepSCA](./samples/deepsca_scan_screenshots.png)
 
 The scan results displayed in DeepSCA are interactive and allow you to view detailed information about the components used in your project, as well as any vulnerabilities or licensing issues detected during the scan.
 
-Click [this URL](https://tools.deepbits.com/github/DeepBitsTechnology/getsbom/d29263777ef33157254ff4207ca00cedf0d537e1) to see the comprehensive view of the screenshot results.
+Click [this URL](https://tools.deepbits.com/github/DeepBitsTechnology/getsbom/main) to see the comprehensive view of the screenshot results.
 
 ## License
 
