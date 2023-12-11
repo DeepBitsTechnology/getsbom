@@ -10,7 +10,7 @@ const ROOT_DIRECTORY_NAME = 'DEEPBITS_SCAN_RESULTS';
 export const isProperEvent = async (): Promise<boolean> => {
   const eventName = github.context.eventName;
 
-  return eventName === 'push';
+  return eventName === 'push' || eventName === 'pull_request';
 };
 
 export const isRepoPublic = async (): Promise<boolean> => {
@@ -37,11 +37,21 @@ export const getBranchName = () => {
     : ref.replace('refs/heads/', '');
 };
 
-export const getScanResult = async (branchName: string) => {
+export const getSHA = () => {
   const context = github.context;
 
   const {sha} = context;
+
+  return github.context.eventName === 'pull_request'
+    ? github.context.payload.pull_request?.head.sha
+    : sha;
+};
+
+export const getScanResult = async (branchName: string) => {
+  const context = github.context;
   const {owner, repo} = context.repo;
+
+  const sha = getSHA();
 
   const result = await getCommitResultUntilScanEnds({
     owner,
@@ -123,9 +133,9 @@ export const downloadCommitSbomZip = async (
   }
 
   const context = github.context;
-
-  const {sha} = context;
   const {owner, repo} = context.repo;
+
+  const sha = getSHA();
 
   const url = `${BASE_URL}/gh/${owner}/${repo}/${sha}/sbom/${sbomId}`;
 

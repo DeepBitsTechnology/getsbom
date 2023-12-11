@@ -122,7 +122,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.downloadCommitSbomZip = exports.uploadArtifacts = exports.setInfo = exports.getScanResult = exports.getBranchName = exports.isRepoPublic = exports.isProperEvent = void 0;
+exports.downloadCommitSbomZip = exports.uploadArtifacts = exports.setInfo = exports.getScanResult = exports.getSHA = exports.getBranchName = exports.isRepoPublic = exports.isProperEvent = void 0;
 const artifact = __importStar(__nccwpck_require__(2605));
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
@@ -132,7 +132,7 @@ const api_1 = __nccwpck_require__(5615);
 const ROOT_DIRECTORY_NAME = 'DEEPBITS_SCAN_RESULTS';
 const isProperEvent = () => __awaiter(void 0, void 0, void 0, function* () {
     const eventName = github.context.eventName;
-    return eventName === 'push';
+    return eventName === 'push' || eventName === 'pull_request';
 });
 exports.isProperEvent = isProperEvent;
 const isRepoPublic = () => __awaiter(void 0, void 0, void 0, function* () {
@@ -153,10 +153,19 @@ const getBranchName = () => {
         : ref.replace('refs/heads/', '');
 };
 exports.getBranchName = getBranchName;
-const getScanResult = (branchName) => __awaiter(void 0, void 0, void 0, function* () {
+const getSHA = () => {
+    var _a;
     const context = github.context;
     const { sha } = context;
+    return github.context.eventName === 'pull_request'
+        ? (_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.head.sha
+        : sha;
+};
+exports.getSHA = getSHA;
+const getScanResult = (branchName) => __awaiter(void 0, void 0, void 0, function* () {
+    const context = github.context;
     const { owner, repo } = context.repo;
+    const sha = (0, exports.getSHA)();
     const result = yield (0, api_1.getCommitResultUntilScanEnds)({
         owner,
         repo,
@@ -213,8 +222,8 @@ const downloadCommitSbomZip = (sbomId) => __awaiter(void 0, void 0, void 0, func
         (0, fs_1.mkdirSync)(ROOT_DIRECTORY_NAME);
     }
     const context = github.context;
-    const { sha } = context;
     const { owner, repo } = context.repo;
+    const sha = (0, exports.getSHA)();
     const url = `${api_1.BASE_URL}/gh/${owner}/${repo}/${sha}/sbom/${sbomId}`;
     try {
         const fileResponse = yield axios_1.default.get(url, {
