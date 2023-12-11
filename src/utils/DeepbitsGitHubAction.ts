@@ -130,7 +130,12 @@ export const downloadCommitSbomZip = async (
   const url = `${BASE_URL}/gh/${owner}/${repo}/${sha}/sbom/${sbomId}`;
 
   try {
-    const fileResponse = await axios.get(url, {responseType: 'arraybuffer'});
+    const fileResponse = await axios.get(url, {
+      responseType: 'arraybuffer',
+      headers: {
+        'x-public-tool': 'true',
+      },
+    });
 
     const fileBuffer = Buffer.from(fileResponse.data);
     const fileName = fileResponse.headers['content-disposition']

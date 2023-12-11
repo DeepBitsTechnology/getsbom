@@ -217,7 +217,12 @@ const downloadCommitSbomZip = (sbomId) => __awaiter(void 0, void 0, void 0, func
     const { owner, repo } = context.repo;
     const url = `${api_1.BASE_URL}/gh/${owner}/${repo}/${sha}/sbom/${sbomId}`;
     try {
-        const fileResponse = yield axios_1.default.get(url, { responseType: 'arraybuffer' });
+        const fileResponse = yield axios_1.default.get(url, {
+            responseType: 'arraybuffer',
+            headers: {
+                'x-public-tool': 'true',
+            },
+        });
         const fileBuffer = Buffer.from(fileResponse.data);
         const fileName = fileResponse.headers['content-disposition']
             .match(/filename=([^;]+)/)[1]

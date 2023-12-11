@@ -8,6 +8,7 @@ on:
   push:
     branches:
       - main
+      - "RD-1203"
       - "releases/*"
 
 jobs:
