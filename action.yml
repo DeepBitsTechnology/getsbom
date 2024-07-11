@@ -9,6 +9,20 @@ inputs:
     description: "The GitHub authentication token"
     default: ${{ github.token }}
     required: false
+  apiKey:
+    description: "Deepbits API key for integration"
+    required: false
+  path:
+    description: "Path to the docker image"
+    required: false
+  project:
+    description: "Project ID"
+    required: false
+outputs:
+  bom:
+    description: "The SBOM file in string"
+  bomPath:
+    description: "Path to the SBOM file"
 runs:
-  using: "node16"
+  using: "node20"
   main: "dist/index.js"

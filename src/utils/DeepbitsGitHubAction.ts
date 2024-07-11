@@ -3,14 +3,26 @@ import * as core from '@actions/core';
 import * as github from '@actions/github';
 import axios from 'axios';
 import {existsSync, mkdirSync, writeFileSync} from 'fs';
-import {BASE_URL, TOOLS_URL, getCommitResultUntilScanEnds} from './api';
+import {
+  BASE_URL,
+  TOOLS_URL,
+  getCommitResultUntilScanEnds,
+  uploadAsset,
+  addToProject,
+  watchAsset,
+  getFileScanResult,
+} from './api';
 
 const ROOT_DIRECTORY_NAME = 'DEEPBITS_SCAN_RESULTS';
 
 export const isProperEvent = async (): Promise<boolean> => {
   const eventName = github.context.eventName;
-
-  return eventName === 'push' || eventName === 'pull_request';
+  core.info(`Current event: ${eventName}`);
+  return (
+    eventName === 'push' ||
+    eventName === 'pull_request' ||
+    eventName === 'release'
+  );
 };
 
 export const isRepoPublic = async (): Promise<boolean> => {
@@ -166,4 +178,50 @@ export const downloadCommitSbomZip = async (
       throw error;
     }
   }
+};
+
+export const uploadDockerImage = async (
+  filePath: string,
+  projectId: string
+) => {
+  const sbomBuilderId = await uploadAsset(filePath);
+  if (!sbomBuilderId) {
+    core.error('Failed to upload asset.');
+    return undefined;
+  }
+  const assetId = await addToProject(projectId, sbomBuilderId);
+  if (!assetId) {
+    core.error('Failed to add asset to project');
+    return undefined;
+  }
+  const streamId = await watchAsset(projectId, assetId, sbomBuilderId);
+  if (!streamId) {
+    core.error('Failed to watch asset');
+    return undefined;
+  }
+  const startTime = Date.now();
+  const timeOut = 3 * 60 * 60 * 1000;
+  while (Date.now() - startTime < timeOut) {
+    try {
+      const scanResult = await getFileScanResult(projectId, assetId, streamId);
+      const bom = scanResult?.scanResult?.finalResult?.bom;
+      if (bom !== undefined) {
+        return {bom, assetId, streamId};
+      } else {
+        core.info('Scan in progress');
+        await new Promise(resolve => setTimeout(resolve, 60 * 1000));
+        continue;
+      }
+    } catch (error: any) {
+      if (error?.response?.status === 404) {
+        core.debug('Repo/commit not added yet');
+        await new Promise(resolve => setTimeout(resolve, 60 * 1000));
+        continue;
+      } else {
+        throw error;
+      }
+    }
+  }
+  core.error('Scan timeout');
+  return undefined;
 };

@@ -38,36 +38,69 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.run = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const DeepbitsGitHubAction_1 = __nccwpck_require__(469);
+const core_1 = __nccwpck_require__(2186);
+const promises_1 = __importDefault(__nccwpck_require__(3977));
+const artifact = __importStar(__nccwpck_require__(2605));
 function run() {
     var _a;
     return __awaiter(this, void 0, void 0, function* () {
         try {
             if (!(yield (0, DeepbitsGitHubAction_1.isProperEvent)())) {
-                core.setFailed('This action is available for branch push only at the moment.');
+                core.warning('This action is available for branch push and release only at the moment.');
                 return;
             }
-            const isPublic = yield (0, DeepbitsGitHubAction_1.isRepoPublic)();
-            if (!isPublic) {
-                core.setFailed('Private repositories are not supported.');
-                return;
+            const path = (0, core_1.getInput)('path', { required: false });
+            const projectId = (0, core_1.getInput)('project', { required: false });
+            core.info(`path = ${path} and project = ${projectId}`);
+            if (path && projectId) {
+                //
+                const uploadResult = yield (0, DeepbitsGitHubAction_1.uploadDockerImage)(path, projectId);
+                if (uploadResult === undefined) {
+                    core.setFailed('Upload docker image failed.');
+                    return;
+                }
+                const { bom, assetId, streamId } = uploadResult;
+                core.setOutput('bom', bom);
+                yield promises_1.default.writeFile('/tmp/bom.json', bom);
+                core.setOutput('bomPath', '/tmp/bom.json');
+                const scanURL = `https://app.deepbits.com/project/${projectId}/${assetId}/${streamId}`;
+                yield core.summary
+                    .addHeading('Deepbits Scan Result', 3)
+                    .addLink(scanURL, scanURL)
+                    .write();
+                yield artifact
+                    .create()
+                    .uploadArtifact('sbom.json', ['/tmp/bom.json'], '/tmp', {
+                    continueOnError: true,
+                });
             }
-            const branchName = (0, DeepbitsGitHubAction_1.getBranchName)();
-            if (!branchName) {
-                core.setFailed('Branch name is not available.');
-                return;
+            else {
+                const isPublic = yield (0, DeepbitsGitHubAction_1.isRepoPublic)();
+                if (!isPublic) {
+                    core.setFailed('Private repositories are not supported.');
+                    return;
+                }
+                const branchName = (0, DeepbitsGitHubAction_1.getBranchName)();
+                if (!branchName) {
+                    core.setFailed('Branch name is not available.');
+                    return;
+                }
+                const scanResult = (_a = (yield (0, DeepbitsGitHubAction_1.getScanResult)(branchName))) === null || _a === void 0 ? void 0 : _a.scanResult;
+                let sbomZipFileLocation;
+                if (scanResult === null || scanResult === void 0 ? void 0 : scanResult._id) {
+                    sbomZipFileLocation = yield (0, DeepbitsGitHubAction_1.downloadCommitSbomZip)(scanResult._id);
+                }
+                const { finalResult } = scanResult !== null && scanResult !== void 0 ? scanResult : {};
+                yield (0, DeepbitsGitHubAction_1.uploadArtifacts)([{ name: 'scanSummary', jsonContent: finalResult || {} }], sbomZipFileLocation ? [sbomZipFileLocation] : undefined);
+                yield (0, DeepbitsGitHubAction_1.setInfo)(branchName);
             }
-            const scanResult = (_a = (yield (0, DeepbitsGitHubAction_1.getScanResult)(branchName))) === null || _a === void 0 ? void 0 : _a.scanResult;
-            let sbomZipFileLocation;
-            if (scanResult === null || scanResult === void 0 ? void 0 : scanResult._id) {
-                sbomZipFileLocation = yield (0, DeepbitsGitHubAction_1.downloadCommitSbomZip)(scanResult._id);
-            }
-            const { finalResult } = scanResult !== null && scanResult !== void 0 ? scanResult : {};
-            yield (0, DeepbitsGitHubAction_1.uploadArtifacts)([{ name: 'scanSummary', jsonContent: finalResult || {} }], sbomZipFileLocation ? [sbomZipFileLocation] : undefined);
-            yield (0, DeepbitsGitHubAction_1.setInfo)(branchName);
         }
         catch (error) {
             if (error instanceof Error)
@@ -122,7 +155,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.downloadCommitSbomZip = exports.uploadArtifacts = exports.setInfo = exports.getScanResult = exports.getSHA = exports.getBranchName = exports.isRepoPublic = exports.isProperEvent = void 0;
+exports.uploadDockerImage = exports.downloadCommitSbomZip = exports.uploadArtifacts = exports.setInfo = exports.getScanResult = exports.getSHA = exports.getBranchName = exports.isRepoPublic = exports.isProperEvent = void 0;
 const artifact = __importStar(__nccwpck_require__(2605));
 const core = __importStar(__nccwpck_require__(2186));
 const github = __importStar(__nccwpck_require__(5438));
@@ -132,7 +165,10 @@ const api_1 = __nccwpck_require__(5615);
 const ROOT_DIRECTORY_NAME = 'DEEPBITS_SCAN_RESULTS';
 const isProperEvent = () => __awaiter(void 0, void 0, void 0, function* () {
     const eventName = github.context.eventName;
-    return eventName === 'push' || eventName === 'pull_request';
+    core.info(`Current event: ${eventName}`);
+    return (eventName === 'push' ||
+        eventName === 'pull_request' ||
+        eventName === 'release');
 });
 exports.isProperEvent = isProperEvent;
 const isRepoPublic = () => __awaiter(void 0, void 0, void 0, function* () {
@@ -253,6 +289,53 @@ const downloadCommitSbomZip = (sbomId) => __awaiter(void 0, void 0, void 0, func
     }
 });
 exports.downloadCommitSbomZip = downloadCommitSbomZip;
+const uploadDockerImage = (filePath, projectId) => __awaiter(void 0, void 0, void 0, function* () {
+    var _b, _c, _d;
+    const sbomBuilderId = yield (0, api_1.uploadAsset)(filePath);
+    if (!sbomBuilderId) {
+        core.error('Failed to upload asset.');
+        return undefined;
+    }
+    const assetId = yield (0, api_1.addToProject)(projectId, sbomBuilderId);
+    if (!assetId) {
+        core.error('Failed to add asset to project');
+        return undefined;
+    }
+    const streamId = yield (0, api_1.watchAsset)(projectId, assetId, sbomBuilderId);
+    if (!streamId) {
+        core.error('Failed to watch asset');
+        return undefined;
+    }
+    const startTime = Date.now();
+    const timeOut = 3 * 60 * 60 * 1000;
+    while (Date.now() - startTime < timeOut) {
+        try {
+            const scanResult = yield (0, api_1.getFileScanResult)(projectId, assetId, streamId);
+            const bom = (_c = (_b = scanResult === null || scanResult === void 0 ? void 0 : scanResult.scanResult) === null || _b === void 0 ? void 0 : _b.finalResult) === null || _c === void 0 ? void 0 : _c.bom;
+            if (bom !== undefined) {
+                return { bom, assetId, streamId };
+            }
+            else {
+                core.info('Scan in progress');
+                yield new Promise(resolve => setTimeout(resolve, 60 * 1000));
+                continue;
+            }
+        }
+        catch (error) {
+            if (((_d = error === null || error === void 0 ? void 0 : error.response) === null || _d === void 0 ? void 0 : _d.status) === 404) {
+                core.debug('Repo/commit not added yet');
+                yield new Promise(resolve => setTimeout(resolve, 60 * 1000));
+                continue;
+            }
+            else {
+                throw error;
+            }
+        }
+    }
+    core.error('Scan timeout');
+    return undefined;
+});
+exports.uploadDockerImage = uploadDockerImage;
 
 
 /***/ }),
@@ -298,9 +381,14 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getCommitResultUntilScanEnds = exports.getCommitResult = exports.callDeepbitsApi = exports.getTimeout = exports.getRetryDelay = exports.TOOLS_URL = exports.BASE_URL = void 0;
+exports.getFileScanResult = exports.watchAsset = exports.addToProject = exports.uploadAsset = exports.getCommitResultUntilScanEnds = exports.getCommitResult = exports.callPrivateApi = exports.callDeepbitsApi = exports.getTimeout = exports.getRetryDelay = exports.TOOLS_URL = exports.BASE_URL = void 0;
 const core = __importStar(__nccwpck_require__(2186));
+const core_1 = __nccwpck_require__(2186);
 const axios_1 = __importDefault(__nccwpck_require__(8757));
+const node_path_1 = __importDefault(__nccwpck_require__(9411));
+const node_fs_1 = __importDefault(__nccwpck_require__(7561));
+const node_crypto_1 = __importDefault(__nccwpck_require__(6005));
+const promises_1 = __importDefault(__nccwpck_require__(6402));
 exports.BASE_URL = 'https://api.deepbits.com';
 exports.TOOLS_URL = 'https://tools.deepbits.com/github';
 const RETRY_DELAY = 60 * 1000; // in milliseconds (1 minute)
@@ -312,19 +400,33 @@ exports.getTimeout = getTimeout;
 const onError = (error) => {
     return Promise.reject(error);
 };
-const createInstance = (baseUrl) => {
+const computeHash = (filePath) => __awaiter(void 0, void 0, void 0, function* () {
+    const input = node_fs_1.default.createReadStream(filePath);
+    const hash = node_crypto_1.default.createHash('sha256');
+    // Connect the output of the `input` stream to the input of `hash`
+    // and let Node.js do the streaming
+    yield promises_1.default.pipeline(input, hash);
+    return hash.digest('hex');
+});
+const createInstance = (baseUrl, apiKey) => {
     const instance = axios_1.default.create({
         baseURL: baseUrl,
     });
     instance.interceptors.request.use((config) => __awaiter(void 0, void 0, void 0, function* () {
         config.headers.set('Content-Type', 'application/json');
-        config.headers.set('x-public-tool', true);
+        if (apiKey) {
+            config.headers.set('x-api-key', apiKey);
+        }
+        else {
+            config.headers.set('x-public-tool', true);
+        }
         return config;
     }), onError);
     instance.interceptors.response.use(response => response.data, onError);
     return instance;
 };
-exports.callDeepbitsApi = createInstance(exports.BASE_URL);
+exports.callDeepbitsApi = createInstance(exports.BASE_URL, '');
+exports.callPrivateApi = createInstance(exports.BASE_URL, (0, core_1.getInput)('apiKey', { required: false, trimWhitespace: true }));
 const getCommitResult = ({ owner, repo, branchName, sha, }) => __awaiter(void 0, void 0, void 0, function* () {
     const url = `/gha/${owner}/${repo}/${encodeURIComponent(branchName)}/${sha}`;
     const result = yield exports.callDeepbitsApi.get(url);
@@ -365,6 +467,75 @@ const getCommitResultUntilScanEnds = ({ owner, repo, branchName, sha, }) => __aw
     return scanResult;
 });
 exports.getCommitResultUntilScanEnds = getCommitResultUntilScanEnds;
+const uploadAsset = (filePath) => __awaiter(void 0, void 0, void 0, function* () {
+    core.info(`Upload Asset, path = ${filePath}`);
+    const result = yield exports.callPrivateApi.post('/api/v1/sbom_builder/upload_url', {
+        fileName: node_path_1.default.basename(filePath),
+    });
+    const presignedURL = result.data;
+    core.info(`presignedURL = ${presignedURL.uploadUrl}`);
+    const { size } = node_fs_1.default.statSync(filePath);
+    yield axios_1.default.put(presignedURL.uploadUrl, node_fs_1.default.createReadStream(filePath), {
+        headers: {
+            'Content-Type': 'application/octet-stream',
+            'Content-Length': size,
+        },
+    });
+    const resp = yield exports.callPrivateApi.put('/api/v1/sbom_builder/upload_success', {
+        path: presignedURL.path,
+        sha256: yield computeHash(filePath),
+        fileName: node_path_1.default.basename(filePath),
+    });
+    const assetId = resp.data['_id'];
+    core.info(`asset id = ${assetId}`);
+    return assetId;
+});
+exports.uploadAsset = uploadAsset;
+const addToProject = (projectId, sbomBuilderId) => __awaiter(void 0, void 0, void 0, function* () {
+    core.info(`Adding to project ${projectId} with ${sbomBuilderId}`);
+    const resp = yield exports.callPrivateApi.get(`/api/v1/project/${projectId}`);
+    const selected = resp.data;
+    let assets = selected.assets;
+    for (const asset of assets) {
+        delete asset.assetIdsWithDetails;
+        if (asset.assetType === 'SBOMBuilder') {
+            asset.assetIds.push(sbomBuilderId);
+        }
+    }
+    if (assets.length === 0) {
+        assets = [
+            {
+                assetType: 'SBOMBuilder',
+                assetIds: [sbomBuilderId],
+            },
+        ];
+    }
+    const updateResp = yield exports.callPrivateApi.put(`/api/v1/project/${projectId}`, {
+        name: selected.name,
+        assets,
+    });
+    for (const asset of updateResp.data.createdAssets) {
+        if (asset.sbomBuilderId === sbomBuilderId) {
+            return asset['_id'];
+        }
+    }
+});
+exports.addToProject = addToProject;
+const watchAsset = (projectId, assetId, sbomBuilderId) => __awaiter(void 0, void 0, void 0, function* () {
+    core.info(`Watching assets ${projectId}, ${assetId}`);
+    const resp = yield exports.callPrivateApi.put(`/api/v1/project/${projectId}/${assetId}/stream_watch`, {
+        action: 'watch',
+        identifier: sbomBuilderId,
+    });
+    return resp.data['_id'];
+});
+exports.watchAsset = watchAsset;
+const getFileScanResult = (projectId, assetId, streamId) => __awaiter(void 0, void 0, void 0, function* () {
+    core.info('Getting scan result');
+    const resp = yield exports.callPrivateApi.get(`/api/v1/project/${projectId}/${assetId}/${streamId}/scan_result`);
+    return resp.data;
+});
+exports.getFileScanResult = getFileScanResult;
 
 
 /***/ }),
@@ -11006,6 +11177,30 @@ var Writable = (__nccwpck_require__(2781).Writable);
 var assert = __nccwpck_require__(9491);
 var debug = __nccwpck_require__(1133);
 
+// Whether to use the native URL object or the legacy url module
+var useNativeURL = false;
+try {
+  assert(new URL());
+}
+catch (error) {
+  useNativeURL = error.code === "ERR_INVALID_URL";
+}
+
+// URL fields to preserve in copy operations
+var preservedUrlFields = [
+  "auth",
+  "host",
+  "hostname",
+  "href",
+  "path",
+  "pathname",
+  "port",
+  "protocol",
+  "query",
+  "search",
+  "hash",
+];
+
 // Create handlers that pass events from native requests
 var events = ["abort", "aborted", "connect", "error", "socket", "timeout"];
 var eventHandlers = Object.create(null);
@@ -11015,19 +11210,20 @@ events.forEach(function (event) {
   };
 });
 
+// Error types with codes
 var InvalidUrlError = createErrorType(
   "ERR_INVALID_URL",
   "Invalid URL",
   TypeError
 );
-// Error types with codes
 var RedirectionError = createErrorType(
   "ERR_FR_REDIRECTION_FAILURE",
   "Redirected request failed"
 );
 var TooManyRedirectsError = createErrorType(
   "ERR_FR_TOO_MANY_REDIRECTS",
-  "Maximum number of redirects exceeded"
+  "Maximum number of redirects exceeded",
+  RedirectionError
 );
 var MaxBodyLengthExceededError = createErrorType(
   "ERR_FR_MAX_BODY_LENGTH_EXCEEDED",
@@ -11037,6 +11233,9 @@ var WriteAfterEndError = createErrorType(
   "ERR_STREAM_WRITE_AFTER_END",
   "write after end"
 );
+
+// istanbul ignore next
+var destroy = Writable.prototype.destroy || noop;
 
 // An HTTP(S) request that can be redirected
 function RedirectableRequest(options, responseCallback) {
@@ -11059,7 +11258,13 @@ function RedirectableRequest(options, responseCallback) {
   // React to responses of native requests
   var self = this;
   this._onNativeResponse = function (response) {
-    self._processResponse(response);
+    try {
+      self._processResponse(response);
+    }
+    catch (cause) {
+      self.emit("error", cause instanceof RedirectionError ?
+        cause : new RedirectionError({ cause: cause }));
+    }
   };
 
   // Perform the first request
@@ -11068,8 +11273,15 @@ function RedirectableRequest(options, responseCallback) {
 RedirectableRequest.prototype = Object.create(Writable.prototype);
 
 RedirectableRequest.prototype.abort = function () {
-  abortRequest(this._currentRequest);
+  destroyRequest(this._currentRequest);
+  this._currentRequest.abort();
   this.emit("abort");
+};
+
+RedirectableRequest.prototype.destroy = function (error) {
+  destroyRequest(this._currentRequest, error);
+  destroy.call(this, error);
+  return this;
 };
 
 // Writes buffered data to the current native request
@@ -11184,6 +11396,7 @@ RedirectableRequest.prototype.setTimeout = function (msecs, callback) {
     self.removeListener("abort", clearTimer);
     self.removeListener("error", clearTimer);
     self.removeListener("response", clearTimer);
+    self.removeListener("close", clearTimer);
     if (callback) {
       self.removeListener("timeout", callback);
     }
@@ -11210,6 +11423,7 @@ RedirectableRequest.prototype.setTimeout = function (msecs, callback) {
   this.on("abort", clearTimer);
   this.on("error", clearTimer);
   this.on("response", clearTimer);
+  this.on("close", clearTimer);
 
   return this;
 };
@@ -11268,8 +11482,7 @@ RedirectableRequest.prototype._performRequest = function () {
   var protocol = this._options.protocol;
   var nativeProtocol = this._options.nativeProtocols[protocol];
   if (!nativeProtocol) {
-    this.emit("error", new TypeError("Unsupported protocol " + protocol));
-    return;
+    throw new TypeError("Unsupported protocol " + protocol);
   }
 
   // If specified, use the agent corresponding to the protocol
@@ -11361,15 +11574,14 @@ RedirectableRequest.prototype._processResponse = function (response) {
   }
 
   // The response is a redirect, so abort the current request
-  abortRequest(this._currentRequest);
+  destroyRequest(this._currentRequest);
   // Discard the remainder of the response to avoid waiting for data
   response.destroy();
 
   // RFC7231§6.4: A client SHOULD detect and intervene
   // in cyclical redirections (i.e., "infinite" redirection loops).
   if (++this._redirectCount > this._options.maxRedirects) {
-    this.emit("error", new TooManyRedirectsError());
-    return;
+    throw new TooManyRedirectsError();
   }
 
   // Store the request headers if applicable
@@ -11403,34 +11615,24 @@ RedirectableRequest.prototype._processResponse = function (response) {
   var currentHostHeader = removeMatchingHeaders(/^host$/i, this._options.headers);
 
   // If the redirect is relative, carry over the host of the last request
-  var currentUrlParts = url.parse(this._currentUrl);
+  var currentUrlParts = parseUrl(this._currentUrl);
   var currentHost = currentHostHeader || currentUrlParts.host;
   var currentUrl = /^\w+:/.test(location) ? this._currentUrl :
     url.format(Object.assign(currentUrlParts, { host: currentHost }));
 
-  // Determine the URL of the redirection
-  var redirectUrl;
-  try {
-    redirectUrl = url.resolve(currentUrl, location);
-  }
-  catch (cause) {
-    this.emit("error", new RedirectionError({ cause: cause }));
-    return;
-  }
-
   // Create the redirected request
-  debug("redirecting to", redirectUrl);
+  var redirectUrl = resolveUrl(location, currentUrl);
+  debug("redirecting to", redirectUrl.href);
   this._isRedirect = true;
-  var redirectUrlParts = url.parse(redirectUrl);
-  Object.assign(this._options, redirectUrlParts);
+  spreadUrlObject(redirectUrl, this._options);
 
   // Drop confidential headers when redirecting to a less secure protocol
   // or to a different domain that is not a superdomain
-  if (redirectUrlParts.protocol !== currentUrlParts.protocol &&
-     redirectUrlParts.protocol !== "https:" ||
-     redirectUrlParts.host !== currentHost &&
-     !isSubdomain(redirectUrlParts.host, currentHost)) {
-    removeMatchingHeaders(/^(?:authorization|cookie)$/i, this._options.headers);
+  if (redirectUrl.protocol !== currentUrlParts.protocol &&
+     redirectUrl.protocol !== "https:" ||
+     redirectUrl.host !== currentHost &&
+     !isSubdomain(redirectUrl.host, currentHost)) {
+    removeMatchingHeaders(/^(?:(?:proxy-)?authorization|cookie)$/i, this._options.headers);
   }
 
   // Evaluate the beforeRedirect callback
@@ -11444,23 +11646,12 @@ RedirectableRequest.prototype._processResponse = function (response) {
       method: method,
       headers: requestHeaders,
     };
-    try {
-      beforeRedirect(this._options, responseDetails, requestDetails);
-    }
-    catch (err) {
-      this.emit("error", err);
-      return;
-    }
+    beforeRedirect(this._options, responseDetails, requestDetails);
     this._sanitizeOptions(this._options);
   }
 
   // Perform the redirected request
-  try {
-    this._performRequest();
-  }
-  catch (cause) {
-    this.emit("error", new RedirectionError({ cause: cause }));
-  }
+  this._performRequest();
 };
 
 // Wraps the key/value object of protocols with redirect functionality
@@ -11480,27 +11671,16 @@ function wrap(protocols) {
 
     // Executes a request, following redirects
     function request(input, options, callback) {
-      // Parse parameters
-      if (isString(input)) {
-        var parsed;
-        try {
-          parsed = urlToOptions(new URL(input));
-        }
-        catch (err) {
-          /* istanbul ignore next */
-          parsed = url.parse(input);
-        }
-        if (!isString(parsed.protocol)) {
-          throw new InvalidUrlError({ input });
-        }
-        input = parsed;
+      // Parse parameters, ensuring that input is an object
+      if (isURL(input)) {
+        input = spreadUrlObject(input);
       }
-      else if (URL && (input instanceof URL)) {
-        input = urlToOptions(input);
+      else if (isString(input)) {
+        input = spreadUrlObject(parseUrl(input));
       }
       else {
         callback = options;
-        options = input;
+        options = validateUrl(input);
         input = { protocol: protocol };
       }
       if (isFunction(options)) {
@@ -11539,27 +11719,57 @@ function wrap(protocols) {
   return exports;
 }
 
-/* istanbul ignore next */
 function noop() { /* empty */ }
 
-// from https://github.com/nodejs/node/blob/master/lib/internal/url.js
-function urlToOptions(urlObject) {
-  var options = {
-    protocol: urlObject.protocol,
-    hostname: urlObject.hostname.startsWith("[") ?
-      /* istanbul ignore next */
-      urlObject.hostname.slice(1, -1) :
-      urlObject.hostname,
-    hash: urlObject.hash,
-    search: urlObject.search,
-    pathname: urlObject.pathname,
-    path: urlObject.pathname + urlObject.search,
-    href: urlObject.href,
-  };
-  if (urlObject.port !== "") {
-    options.port = Number(urlObject.port);
+function parseUrl(input) {
+  var parsed;
+  /* istanbul ignore else */
+  if (useNativeURL) {
+    parsed = new URL(input);
   }
-  return options;
+  else {
+    // Ensure the URL is valid and absolute
+    parsed = validateUrl(url.parse(input));
+    if (!isString(parsed.protocol)) {
+      throw new InvalidUrlError({ input });
+    }
+  }
+  return parsed;
+}
+
+function resolveUrl(relative, base) {
+  /* istanbul ignore next */
+  return useNativeURL ? new URL(relative, base) : parseUrl(url.resolve(base, relative));
+}
+
+function validateUrl(input) {
+  if (/^\[/.test(input.hostname) && !/^\[[:0-9a-f]+\]$/i.test(input.hostname)) {
+    throw new InvalidUrlError({ input: input.href || input });
+  }
+  if (/^\[/.test(input.host) && !/^\[[:0-9a-f]+\](:\d+)?$/i.test(input.host)) {
+    throw new InvalidUrlError({ input: input.href || input });
+  }
+  return input;
+}
+
+function spreadUrlObject(urlObject, target) {
+  var spread = target || {};
+  for (var key of preservedUrlFields) {
+    spread[key] = urlObject[key];
+  }
+
+  // Fix IPv6 hostname
+  if (spread.hostname.startsWith("[")) {
+    spread.hostname = spread.hostname.slice(1, -1);
+  }
+  // Ensure port is a number
+  if (spread.port !== "") {
+    spread.port = Number(spread.port);
+  }
+  // Concatenate path
+  spread.path = spread.search ? spread.pathname + spread.search : spread.pathname;
+
+  return spread;
 }
 
 function removeMatchingHeaders(regex, headers) {
@@ -11585,17 +11795,25 @@ function createErrorType(code, message, baseClass) {
 
   // Attach constructor and set default properties
   CustomError.prototype = new (baseClass || Error)();
-  CustomError.prototype.constructor = CustomError;
-  CustomError.prototype.name = "Error [" + code + "]";
+  Object.defineProperties(CustomError.prototype, {
+    constructor: {
+      value: CustomError,
+      enumerable: false,
+    },
+    name: {
+      value: "Error [" + code + "]",
+      enumerable: false,
+    },
+  });
   return CustomError;
 }
 
-function abortRequest(request) {
+function destroyRequest(request, error) {
   for (var event of events) {
     request.removeListener(event, eventHandlers[event]);
   }
   request.on("error", noop);
-  request.abort();
+  request.destroy(error);
 }
 
 function isSubdomain(subdomain, domain) {
@@ -11614,6 +11832,10 @@ function isFunction(value) {
 
 function isBuffer(value) {
   return typeof value === "object" && ("length" in value);
+}
+
+function isURL(value) {
+  return URL && value instanceof URL;
 }
 
 // Exports
@@ -23169,6 +23391,132 @@ module.exports = buildConnector
 
 /***/ }),
 
+/***/ 4462:
+/***/ ((module) => {
+
+"use strict";
+
+
+/** @type {Record<string, string | undefined>} */
+const headerNameLowerCasedRecord = {}
+
+// https://developer.mozilla.org/docs/Web/HTTP/Headers
+const wellknownHeaderNames = [
+  'Accept',
+  'Accept-Encoding',
+  'Accept-Language',
+  'Accept-Ranges',
+  'Access-Control-Allow-Credentials',
+  'Access-Control-Allow-Headers',
+  'Access-Control-Allow-Methods',
+  'Access-Control-Allow-Origin',
+  'Access-Control-Expose-Headers',
+  'Access-Control-Max-Age',
+  'Access-Control-Request-Headers',
+  'Access-Control-Request-Method',
+  'Age',
+  'Allow',
+  'Alt-Svc',
+  'Alt-Used',
+  'Authorization',
+  'Cache-Control',
+  'Clear-Site-Data',
+  'Connection',
+  'Content-Disposition',
+  'Content-Encoding',
+  'Content-Language',
+  'Content-Length',
+  'Content-Location',
+  'Content-Range',
+  'Content-Security-Policy',
+  'Content-Security-Policy-Report-Only',
+  'Content-Type',
+  'Cookie',
+  'Cross-Origin-Embedder-Policy',
+  'Cross-Origin-Opener-Policy',
+  'Cross-Origin-Resource-Policy',
+  'Date',
+  'Device-Memory',
+  'Downlink',
+  'ECT',
+  'ETag',
+  'Expect',
+  'Expect-CT',
+  'Expires',
+  'Forwarded',
+  'From',
+  'Host',
+  'If-Match',
+  'If-Modified-Since',
+  'If-None-Match',
+  'If-Range',
+  'If-Unmodified-Since',
+  'Keep-Alive',
+  'Last-Modified',
+  'Link',
+  'Location',
+  'Max-Forwards',
+  'Origin',
+  'Permissions-Policy',
+  'Pragma',
+  'Proxy-Authenticate',
+  'Proxy-Authorization',
+  'RTT',
+  'Range',
+  'Referer',
+  'Referrer-Policy',
+  'Refresh',
+  'Retry-After',
+  'Sec-WebSocket-Accept',
+  'Sec-WebSocket-Extensions',
+  'Sec-WebSocket-Key',
+  'Sec-WebSocket-Protocol',
+  'Sec-WebSocket-Version',
+  'Server',
+  'Server-Timing',
+  'Service-Worker-Allowed',
+  'Service-Worker-Navigation-Preload',
+  'Set-Cookie',
+  'SourceMap',
+  'Strict-Transport-Security',
+  'Supports-Loading-Mode',
+  'TE',
+  'Timing-Allow-Origin',
+  'Trailer',
+  'Transfer-Encoding',
+  'Upgrade',
+  'Upgrade-Insecure-Requests',
+  'User-Agent',
+  'Vary',
+  'Via',
+  'WWW-Authenticate',
+  'X-Content-Type-Options',
+  'X-DNS-Prefetch-Control',
+  'X-Frame-Options',
+  'X-Permitted-Cross-Domain-Policies',
+  'X-Powered-By',
+  'X-Requested-With',
+  'X-XSS-Protection'
+]
+
+for (let i = 0; i < wellknownHeaderNames.length; ++i) {
+  const key = wellknownHeaderNames[i]
+  const lowerCasedKey = key.toLowerCase()
+  headerNameLowerCasedRecord[key] = headerNameLowerCasedRecord[lowerCasedKey] =
+    lowerCasedKey
+}
+
+// Note: object prototypes should not be able to be referenced. e.g. `Object#hasOwnProperty`.
+Object.setPrototypeOf(headerNameLowerCasedRecord, null)
+
+module.exports = {
+  wellknownHeaderNames,
+  headerNameLowerCasedRecord
+}
+
+
+/***/ }),
+
 /***/ 8045:
 /***/ ((module) => {
 
@@ -23999,6 +24347,7 @@ const { InvalidArgumentError } = __nccwpck_require__(8045)
 const { Blob } = __nccwpck_require__(4300)
 const nodeUtil = __nccwpck_require__(3837)
 const { stringify } = __nccwpck_require__(3477)
+const { headerNameLowerCasedRecord } = __nccwpck_require__(4462)
 
 const [nodeMajor, nodeMinor] = process.versions.node.split('.').map(v => Number(v))
 
@@ -24206,6 +24555,15 @@ const KEEPALIVE_TIMEOUT_EXPR = /timeout=(\d+)/
 function parseKeepAliveTimeout (val) {
   const m = val.toString().match(KEEPALIVE_TIMEOUT_EXPR)
   return m ? parseInt(m[1], 10) * 1000 : null
+}
+
+/**
+ * Retrieves a header name and returns its lowercase value.
+ * @param {string | Buffer} value Header name
+ * @returns {string}
+ */
+function headerNameToString (value) {
+  return headerNameLowerCasedRecord[value] || value.toLowerCase()
 }
 
 function parseHeaders (headers, obj = {}) {
@@ -24479,6 +24837,7 @@ module.exports = {
   isIterable,
   isAsyncIterable,
   isDestroyed,
+  headerNameToString,
   parseRawHeaders,
   parseHeaders,
   parseKeepAliveTimeout,
@@ -28615,6 +28974,9 @@ function httpRedirectFetch (fetchParams, response) {
     // https://fetch.spec.whatwg.org/#cors-non-wildcard-request-header-name
     request.headersList.delete('authorization')
 
+    // https://fetch.spec.whatwg.org/#authentication-entries
+    request.headersList.delete('proxy-authorization', true)
+
     // "Cookie" and "Host" are forbidden request-headers, which undici doesn't implement.
     request.headersList.delete('cookie')
     request.headersList.delete('host')
@@ -31123,14 +31485,18 @@ const { isBlobLike, toUSVString, ReadableStreamFrom } = __nccwpck_require__(3983
 const assert = __nccwpck_require__(9491)
 const { isUint8Array } = __nccwpck_require__(9830)
 
+let supportedHashes = []
+
 // https://nodejs.org/api/crypto.html#determining-if-crypto-support-is-unavailable
 /** @type {import('crypto')|undefined} */
 let crypto
 
 try {
   crypto = __nccwpck_require__(6113)
+  const possibleRelevantHashes = ['sha256', 'sha384', 'sha512']
+  supportedHashes = crypto.getHashes().filter((hash) => possibleRelevantHashes.includes(hash))
+/* c8 ignore next 3 */
 } catch {
-
 }
 
 function responseURL (response) {
@@ -31658,66 +32024,56 @@ function bytesMatch (bytes, metadataList) {
     return true
   }
 
-  // 3. If parsedMetadata is the empty set, return true.
+  // 3. If response is not eligible for integrity validation, return false.
+  // TODO
+
+  // 4. If parsedMetadata is the empty set, return true.
   if (parsedMetadata.length === 0) {
     return true
   }
 
-  // 4. Let metadata be the result of getting the strongest
+  // 5. Let metadata be the result of getting the strongest
   //    metadata from parsedMetadata.
-  const list = parsedMetadata.sort((c, d) => d.algo.localeCompare(c.algo))
-  // get the strongest algorithm
-  const strongest = list[0].algo
-  // get all entries that use the strongest algorithm; ignore weaker
-  const metadata = list.filter((item) => item.algo === strongest)
+  const strongest = getStrongestMetadata(parsedMetadata)
+  const metadata = filterMetadataListByAlgorithm(parsedMetadata, strongest)
 
-  // 5. For each item in metadata:
+  // 6. For each item in metadata:
   for (const item of metadata) {
     // 1. Let algorithm be the alg component of item.
     const algorithm = item.algo
 
     // 2. Let expectedValue be the val component of item.
-    let expectedValue = item.hash
+    const expectedValue = item.hash
 
     // See https://github.com/web-platform-tests/wpt/commit/e4c5cc7a5e48093220528dfdd1c4012dc3837a0e
     // "be liberal with padding". This is annoying, and it's not even in the spec.
 
-    if (expectedValue.endsWith('==')) {
-      expectedValue = expectedValue.slice(0, -2)
-    }
-
     // 3. Let actualValue be the result of applying algorithm to bytes.
     let actualValue = crypto.createHash(algorithm).update(bytes).digest('base64')
 
-    if (actualValue.endsWith('==')) {
-      actualValue = actualValue.slice(0, -2)
+    if (actualValue[actualValue.length - 1] === '=') {
+      if (actualValue[actualValue.length - 2] === '=') {
+        actualValue = actualValue.slice(0, -2)
+      } else {
+        actualValue = actualValue.slice(0, -1)
+      }
     }
 
     // 4. If actualValue is a case-sensitive match for expectedValue,
     //    return true.
-    if (actualValue === expectedValue) {
-      return true
-    }
-
-    let actualBase64URL = crypto.createHash(algorithm).update(bytes).digest('base64url')
-
-    if (actualBase64URL.endsWith('==')) {
-      actualBase64URL = actualBase64URL.slice(0, -2)
-    }
-
-    if (actualBase64URL === expectedValue) {
+    if (compareBase64Mixed(actualValue, expectedValue)) {
       return true
     }
   }
 
-  // 6. Return false.
+  // 7. Return false.
   return false
 }
 
 // https://w3c.github.io/webappsec-subresource-integrity/#grammardef-hash-with-options
 // https://www.w3.org/TR/CSP2/#source-list-syntax
 // https://www.rfc-editor.org/rfc/rfc5234#appendix-B.1
-const parseHashWithOptions = /((?<algo>sha256|sha384|sha512)-(?<hash>[A-z0-9+/]{1}.*={0,2}))( +[\x21-\x7e]?)?/i
+const parseHashWithOptions = /(?<algo>sha256|sha384|sha512)-((?<hash>[A-Za-z0-9+/]+|[A-Za-z0-9_-]+)={0,2}(?:\s|$)( +[!-~]*)?)?/i
 
 /**
  * @see https://w3c.github.io/webappsec-subresource-integrity/#parse-metadata
@@ -31731,8 +32087,6 @@ function parseMetadata (metadata) {
   // 2. Let empty be equal to true.
   let empty = true
 
-  const supportedHashes = crypto.getHashes()
-
   // 3. For each token returned by splitting metadata on spaces:
   for (const token of metadata.split(' ')) {
     // 1. Set empty to false.
@@ -31742,7 +32096,11 @@ function parseMetadata (metadata) {
     const parsedToken = parseHashWithOptions.exec(token)
 
     // 3. If token does not parse, continue to the next token.
-    if (parsedToken === null || parsedToken.groups === undefined) {
+    if (
+      parsedToken === null ||
+      parsedToken.groups === undefined ||
+      parsedToken.groups.algo === undefined
+    ) {
       // Note: Chromium blocks the request at this point, but Firefox
       // gives a warning that an invalid integrity was given. The
       // correct behavior is to ignore these, and subsequently not
@@ -31751,11 +32109,11 @@ function parseMetadata (metadata) {
     }
 
     // 4. Let algorithm be the hash-algo component of token.
-    const algorithm = parsedToken.groups.algo
+    const algorithm = parsedToken.groups.algo.toLowerCase()
 
     // 5. If algorithm is a hash function recognized by the user
     //    agent, add the parsed token to result.
-    if (supportedHashes.includes(algorithm.toLowerCase())) {
+    if (supportedHashes.includes(algorithm)) {
       result.push(parsedToken.groups)
     }
   }
@@ -31766,6 +32124,82 @@ function parseMetadata (metadata) {
   }
 
   return result
+}
+
+/**
+ * @param {{ algo: 'sha256' | 'sha384' | 'sha512' }[]} metadataList
+ */
+function getStrongestMetadata (metadataList) {
+  // Let algorithm be the algo component of the first item in metadataList.
+  // Can be sha256
+  let algorithm = metadataList[0].algo
+  // If the algorithm is sha512, then it is the strongest
+  // and we can return immediately
+  if (algorithm[3] === '5') {
+    return algorithm
+  }
+
+  for (let i = 1; i < metadataList.length; ++i) {
+    const metadata = metadataList[i]
+    // If the algorithm is sha512, then it is the strongest
+    // and we can break the loop immediately
+    if (metadata.algo[3] === '5') {
+      algorithm = 'sha512'
+      break
+    // If the algorithm is sha384, then a potential sha256 or sha384 is ignored
+    } else if (algorithm[3] === '3') {
+      continue
+    // algorithm is sha256, check if algorithm is sha384 and if so, set it as
+    // the strongest
+    } else if (metadata.algo[3] === '3') {
+      algorithm = 'sha384'
+    }
+  }
+  return algorithm
+}
+
+function filterMetadataListByAlgorithm (metadataList, algorithm) {
+  if (metadataList.length === 1) {
+    return metadataList
+  }
+
+  let pos = 0
+  for (let i = 0; i < metadataList.length; ++i) {
+    if (metadataList[i].algo === algorithm) {
+      metadataList[pos++] = metadataList[i]
+    }
+  }
+
+  metadataList.length = pos
+
+  return metadataList
+}
+
+/**
+ * Compares two base64 strings, allowing for base64url
+ * in the second string.
+ *
+* @param {string} actualValue always base64
+ * @param {string} expectedValue base64 or base64url
+ * @returns {boolean}
+ */
+function compareBase64Mixed (actualValue, expectedValue) {
+  if (actualValue.length !== expectedValue.length) {
+    return false
+  }
+  for (let i = 0; i < actualValue.length; ++i) {
+    if (actualValue[i] !== expectedValue[i]) {
+      if (
+        (actualValue[i] === '+' && expectedValue[i] === '-') ||
+        (actualValue[i] === '/' && expectedValue[i] === '_')
+      ) {
+        continue
+      }
+      return false
+    }
+  }
+
+  return true
 }
 
 // https://w3c.github.io/webappsec-upgrade-insecure-requests/#upgrade-request
@@ -32183,7 +32617,8 @@ module.exports = {
   urlHasHttpsScheme,
   urlIsHttpHttpsScheme,
   readAllBytes,
-  normalizeMethodRecord
+  normalizeMethodRecord,
+  parseMetadata
 }
 
 
@@ -34270,12 +34705,17 @@ function parseLocation (statusCode, headers) {
 
 // https://tools.ietf.org/html/rfc7231#section-6.4.4
 function shouldRemoveHeader (header, removeContent, unknownOrigin) {
-  return (
-    (header.length === 4 && header.toString().toLowerCase() === 'host') ||
-    (removeContent && header.toString().toLowerCase().indexOf('content-') === 0) ||
-    (unknownOrigin && header.length === 13 && header.toString().toLowerCase() === 'authorization') ||
-    (unknownOrigin && header.length === 6 && header.toString().toLowerCase() === 'cookie')
-  )
+  if (header.length === 4) {
+    return util.headerNameToString(header) === 'host'
+  }
+  if (removeContent && util.headerNameToString(header).startsWith('content-')) {
+    return true
+  }
+  if (unknownOrigin && (header.length === 13 || header.length === 6 || header.length === 19)) {
+    const name = util.headerNameToString(header)
+    return name === 'authorization' || name === 'cookie' || name === 'proxy-authorization'
+  }
+  return false
 }
 
 // https://tools.ietf.org/html/rfc7231#section-6.4
@@ -39585,6 +40025,14 @@ module.exports = require("net");
 
 /***/ }),
 
+/***/ 6005:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:crypto");
+
+/***/ }),
+
 /***/ 5673:
 /***/ ((module) => {
 
@@ -39593,11 +40041,43 @@ module.exports = require("node:events");
 
 /***/ }),
 
+/***/ 7561:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:fs");
+
+/***/ }),
+
+/***/ 3977:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:fs/promises");
+
+/***/ }),
+
+/***/ 9411:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:path");
+
+/***/ }),
+
 /***/ 4492:
 /***/ ((module) => {
 
 "use strict";
 module.exports = require("node:stream");
+
+/***/ }),
+
+/***/ 6402:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("node:stream/promises");
 
 /***/ }),
 
