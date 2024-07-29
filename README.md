@@ -27,7 +27,7 @@ Powered by [Deepbits](https://www.deepbits.com/).
 To use this action, simply add it as a step in your GitHub Actions workflow:
 
 ```yaml
-- uses: DeepBitsTechnology/getsbom@v1
+- uses: DeepBitsTechnology/getsbom@v1.5.0
 ```
 
 ## Example Usage
@@ -41,7 +41,7 @@ jobs:
       DEEPSCA_BRANCH_LINK: ${{ steps.deepbits-scan.outputs.DEEPSCA_BRANCH }}
       DEEPSCA_REPO_LINK: ${{ steps.deepbits-scan.outputs.DEEPSCA_REPO }}
     steps:
-      - uses: DeepBitsTechnology/getsbom@v1
+      - uses: DeepBitsTechnology/getsbom@v1.5.0
         id: deepbits-scan
 ```
 
